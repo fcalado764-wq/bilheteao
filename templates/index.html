@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BilheteAO — Eventos em Angola</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">🎟️</span>
+      <span class="brand-name">BilheteAO</span>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link active">Eventos</a>
+      <a href="/validate" class="nav-link">Validar</a>
+      <a href="/submit-event" class="nav-link">Propor Evento</a>
+      <div id="navAuth"></div>
+      <a href="/admin" class="nav-link nav-admin">Admin</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">Eventos em <span class="accent">Angola</span></h1>
+      <p class="hero-sub">Compre o seu bilhete em segundos. Receba em PDF. Aceda ao evento.</p>
+    </div>
+  </section>
+
+  <section class="filters-section">
+    <div class="container">
+      <div class="filter-tags" id="filterTags">
+        <button class="tag active" data-filter="all">Todos</button>
+        <button class="tag" data-filter="Música">🎵 Música</button>
+        <button class="tag" data-filter="Tecnologia">💻 Tecnologia</button>
+        <button class="tag" data-filter="Teatro">🎭 Teatro</button>
+        <button class="tag" data-filter="Desporto">🏃 Desporto</button>
+        <button class="tag" data-filter="Arte">🎨 Arte</button>
+      </div>
+    </div>
+  </section>
+
+  <main class="main-content">
+    <div class="container">
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div><p>A carregar eventos...</p>
+      </div>
+      <div class="events-grid" id="eventsGrid"></div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2025 BilheteAO — Sistema de Venda de Bilhetes Online</p>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    // Mostrar link "Propor Evento" na navbar apenas se autenticado
+    // (já tratado pelo auth.js via navAuth)
+    let allEvents = [], activeFilter = 'all';
+
+    async function loadEvents() {
+      try {
+        const res  = await fetch('/api/events');
+        const json = await res.json();
+        allEvents  = json.data;
+        renderEvents(allEvents);
+        document.getElementById('loadingState').style.display = 'none';
+      } catch {
+        document.getElementById('loadingState').innerHTML = '<p style="color:#e94560">Erro ao carregar eventos.</p>';
+      }
+    }
+
+    function renderEvents(events) {
+      const grid     = document.getElementById('eventsGrid');
+      const filtered = activeFilter === 'all' ? events : events.filter(e => e.category === activeFilter);
+
+      if (!filtered.length) {
+        grid.innerHTML = '<div class="no-events"><p>Nenhum evento nesta categoria.</p></div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(event => {
+        const dateStr   = new Date(event.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
+        const occupancy = Math.round((event.soldSeats / event.totalSeats) * 100);
+        const coverBg   = event.coverUrl
+          ? `style="background-image:url('${event.coverUrl}');background-size:cover;background-position:center"`
+          : '';
+
+        return `
+          <article class="event-card ${event.soldOut ? 'sold-out' : ''}" onclick="location.href='/event/${event.id}'">
+            <div class="card-cover" ${coverBg}>
+              ${!event.coverUrl ? `<span class="card-emoji-big">${event.emoji}</span>` : ''}
+            </div>
+            <div class="card-body">
+              <span class="card-category">${event.category}</span>
+              <h2 class="card-title">${event.name}</h2>
+              <p class="card-desc">${event.description}</p>
+              <div class="card-meta">
+                <span class="meta-item">📅 ${dateStr}</span>
+                <span class="meta-item">🕐 ${event.time}h</span>
+                <span class="meta-item">📍 ${event.location.split(',')[0]}</span>
+              </div>
+              <div class="card-occupancy">
+                <div class="occ-bar"><div class="occ-fill" style="width:${occupancy}%"></div></div>
+                <span class="occ-text">${event.availableSeats} lugares disponíveis</span>
+              </div>
+              <div class="card-footer">
+                <span class="card-price">${event.price.toLocaleString('pt-AO')} AOA</span>
+                <button class="btn-buy ${event.soldOut ? 'btn-disabled' : ''}">
+                  ${event.soldOut ? 'Esgotado' : 'Comprar →'}
+                </button>
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+    }
+
+    document.getElementById('filterTags').addEventListener('click', e => {
+      if (e.target.classList.contains('tag')) {
+        document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        activeFilter = e.target.dataset.filter;
+        renderEvents(allEvents);
+      }
+    });
+
+    loadEvents();
+  </script>
+</body>
+</html>

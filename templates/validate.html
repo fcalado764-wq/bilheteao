@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validar Bilhete — BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:8px;color:inherit">
+        <span class="brand-icon">🎟️</span>
+        <span class="brand-name">BilheteAO</span>
+      </a>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">← Eventos</a>
+    </div>
+  </nav>
+
+  <main class="main-content" style="padding-top:60px">
+    <div class="container" style="max-width:500px;text-align:center">
+
+      <div style="font-size:50px;margin-bottom:12px">🔍</div>
+      <h1 class="hero-title" style="font-size:2.2rem">Validar Bilhete</h1>
+      <p style="color:var(--text-muted);margin-bottom:40px">Introduza o código do bilhete para verificar a sua autenticidade.</p>
+
+      <div class="purchase-form-box" style="text-align:left">
+        <div class="form-group">
+          <label class="form-label">Código do Bilhete</label>
+          <input type="text" id="ticketCodeInput" class="form-input"
+            placeholder="Ex: TKT-A1B2C3D4"
+            style="text-transform:uppercase;letter-spacing:2px;font-weight:600"
+            oninput="this.value = this.value.toUpperCase()">
+        </div>
+        <button class="btn-purchase" onclick="validateTicket()">Verificar Bilhete</button>
+      </div>
+
+      <div id="validResult" style="margin-top:30px;display:none"></div>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2025 BilheteAO — Sistema de Venda de Bilhetes Online</p>
+  </footer>
+
+  <script>
+    async function validateTicket() {
+      const code = document.getElementById('ticketCodeInput').value.trim();
+      const resultDiv = document.getElementById('validResult');
+
+      if (!code) {
+        resultDiv.innerHTML = `<div class="validate-box invalid">⚠️ Introduza um código de bilhete.</div>`;
+        resultDiv.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketCode: code })
+        });
+        const json = await res.json();
+
+        if (json.valid) {
+          const d = json.data;
+          resultDiv.innerHTML = `
+            <div class="validate-box valid">
+              <div class="validate-icon">✅</div>
+              <h3>Bilhete Válido</h3>
+              <p>${json.message}</p>
+              <div class="val-details">
+                <div class="val-row"><span>Evento</span><strong>${d.eventName}</strong></div>
+                <div class="val-row"><span>Titular</span><strong>${d.customerName}</strong></div>
+                <div class="val-row"><span>Código</span><strong>${d.ticketCode}</strong></div>
+                <div class="val-row"><span>Quantidade</span><strong>${d.quantity} bilhete(s)</strong></div>
+              </div>
+            </div>`;
+        } else {
+          resultDiv.innerHTML = `
+            <div class="validate-box invalid">
+              <div class="validate-icon">❌</div>
+              <h3>Bilhete Inválido</h3>
+              <p>${json.message}</p>
+              ${json.data ? `<small>Código: ${json.data.ticketCode}</small>` : ''}
+            </div>`;
+        }
+        resultDiv.style.display = 'block';
+      } catch {
+        resultDiv.innerHTML = `<div class="validate-box invalid">⚠️ Erro ao comunicar com o servidor.</div>`;
+        resultDiv.style.display = 'block';
+      }
+    }
+
+    document.getElementById('ticketCodeInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') validateTicket();
+    });
+  </script>
+</body>
+</html>

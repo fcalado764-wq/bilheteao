@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Admin — BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body style="background:#080810">
+
+<div class="admin-layout">
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand"><span>🎟️</span><span>BilheteAO</span></div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-link active" onclick="showTab('overview',this)">📊 Visão Geral</button>
+      <button class="sidebar-link" onclick="showTab('events',this)">🎪 Eventos</button>
+      <button class="sidebar-link" onclick="showTab('pending',this)">⏳ Pendentes <span id="pendingBadge" class="pending-count" style="display:none"></span></button>
+      <button class="sidebar-link" onclick="showTab('sales',this)">💳 Vendas</button>
+      <button class="sidebar-link" onclick="showTab('users',this)">👥 Utilizadores</button>
+      <button class="sidebar-link" onclick="showTab('validate',this)">✅ Validar</button>
+      <button class="sidebar-link" onclick="showTab('settings',this)">⚙️ Definições</button>
+    </nav>
+    <button class="sidebar-logout" onclick="doLogout()">🚪 Terminar Sessão</button>
+  </aside>
+
+  <!-- CONTEÚDO -->
+  <main class="admin-main">
+
+    <!-- VISÃO GERAL -->
+    <div id="tab-overview" class="admin-tab">
+      <div class="admin-page-header"><h1>Visão Geral</h1><span class="admin-badge">Painel de Controlo</span></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">🎪</div><div class="stat-value" id="sEvents">—</div><div class="stat-label">Eventos Activos</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="sPending">—</div><div class="stat-label">Eventos Pendentes</div></div>
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="sUsers">—</div><div class="stat-label">Utilizadores</div></div>
+        <div class="stat-card"><div class="stat-icon">💳</div><div class="stat-value" id="sSales">—</div><div class="stat-label">Vendas</div></div>
+        <div class="stat-card"><div class="stat-icon">🎟️</div><div class="stat-value" id="sTickets">—</div><div class="stat-label">Bilhetes Emitidos</div></div>
+        <div class="stat-card accent-card"><div class="stat-icon">💰</div><div class="stat-value" id="sRevenue">—</div><div class="stat-label">Receita Total (AOA)</div></div>
+      </div>
+    </div>
+
+    <!-- EVENTOS -->
+    <div id="tab-events" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Gestão de Eventos</h1><button class="btn-add-event" onclick="toggleAddForm()">+ Novo Evento</button></div>
+
+      <div id="addEventForm" class="add-event-form" style="display:none">
+        <h3 style="margin-bottom:20px;color:var(--accent)">Criar Novo Evento (aprovado imediatamente)</h3>
+        <div class="form-grid-2">
+          <div class="form-group" style="grid-column:1/-1"><label class="form-label">Nome *</label><input type="text" id="nName" class="form-input" placeholder="Nome do evento"></div>
+          <div class="form-group"><label class="form-label">Categoria</label>
+            <select id="nCat" class="form-input"><option>Música</option><option>Tecnologia</option><option>Teatro</option><option>Desporto</option><option>Arte</option><option>Geral</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">Emoji</label><input type="text" id="nEmoji" class="form-input" placeholder="🎵" maxlength="4"></div>
+          <div class="form-group"><label class="form-label">Data *</label><input type="date" id="nDate" class="form-input"></div>
+          <div class="form-group"><label class="form-label">Hora *</label><input type="time" id="nTime" class="form-input"></div>
+          <div class="form-group" style="grid-column:1/-1"><label class="form-label">Local *</label><input type="text" id="nLoc" class="form-input" placeholder="Local do evento"></div>
+          <div class="form-group"><label class="form-label">Preço (AOA) *</label><input type="number" id="nPrice" class="form-input" placeholder="2500"></div>
+          <div class="form-group"><label class="form-label">Total Lugares *</label><input type="number" id="nSeats" class="form-input" placeholder="200"></div>
+          <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descrição</label><textarea id="nDesc" class="form-input" rows="2" placeholder="Descrição do evento..."></textarea></div>
+          <div class="form-group"><label class="form-label">🖼️ Foto de Capa</label><input type="file" id="nCover" class="form-input" accept="image/*" style="padding:8px"></div>
+          <div class="form-group"><label class="form-label">🎨 Cartaz</label><input type="file" id="nPoster" class="form-input" accept="image/*" style="padding:8px"></div>
+        </div>
+        <div id="addEventError" class="form-error" style="display:none"></div>
+        <button class="btn-purchase" style="width:auto;padding:12px 28px" onclick="createEvent()">✅ Criar Evento</button>
+        <button class="btn-secondary" style="width:auto;padding:12px 20px;margin-left:10px;display:inline-block" onclick="toggleAddForm()">Cancelar</button>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Evento</th><th>Data</th><th>Preço</th><th>Lugares</th><th>Vendidos</th><th>Estado</th><th>Acção</th></tr></thead>
+          <tbody id="eventsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- EVENTOS PENDENTES -->
+    <div id="tab-pending" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Eventos Pendentes</h1><span class="admin-badge" id="pendingCount">0</span></div>
+      <div id="pendingList"></div>
+    </div>
+
+    <!-- VENDAS -->
+    <div id="tab-sales" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Registo de Vendas</h1><span class="admin-badge" id="salesCount">0 vendas</span></div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Código</th><th>Evento</th><th>Cliente</th><th>Qtd</th><th>Total</th><th>Data</th><th>Estado</th><th>PDF</th></tr></thead>
+          <tbody id="salesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- UTILIZADORES -->
+    <div id="tab-users" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Utilizadores</h1><span class="admin-badge" id="usersCount">0</span></div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Função</th><th>Registado em</th></tr></thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- VALIDAR -->
+    <div id="tab-validate" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Validação de Bilhetes</h1></div>
+      <div class="purchase-form-box" style="max-width:480px">
+        <div class="form-group">
+          <label class="form-label">Código do Bilhete</label>
+          <input type="text" id="adminTicketCode" class="form-input" placeholder="TKT-XXXXXXXX"
+            style="text-transform:uppercase;letter-spacing:2px;font-weight:600;font-size:1.1rem"
+            oninput="this.value=this.value.toUpperCase()">
+        </div>
+        <button class="btn-purchase" onclick="adminValidate()">🔍 Verificar Bilhete</button>
+        <div id="adminValidResult" style="margin-top:20px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- DEFINIÇÕES -->
+    <div id="tab-settings" class="admin-tab" style="display:none">
+      <div class="admin-page-header"><h1>Definições</h1><span class="admin-badge">Conta Admin</span></div>
+      <div class="purchase-form-box" style="max-width:480px">
+        <h3 style="margin-bottom:20px;color:var(--accent)">Alterar Credenciais</h3>
+        <div id="settingsError"   class="form-error"   style="display:none"></div>
+        <div id="settingsSuccess" class="form-success"  style="display:none"></div>
+        <div class="form-group">
+          <label class="form-label">Novo Nome de Utilizador</label>
+          <input type="text" id="newUsername" class="form-input" placeholder="Deixe em branco para manter">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Senha Actual *</label>
+          <input type="password" id="currentPass" class="form-input" placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nova Senha</label>
+          <input type="password" id="newPass" class="form-input" placeholder="Deixe em branco para manter">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirmar Nova Senha</label>
+          <input type="password" id="confirmPass" class="form-input" placeholder="••••••••">
+        </div>
+        <button class="btn-purchase" onclick="saveCredentials()">💾 Guardar Alterações</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const token = localStorage.getItem('adminToken');
+  if (!token) window.location.href = '/admin';
+  const H = { 'Content-Type': 'application/json', 'x-admin-token': token };
+
+  function showTab(name, btn) {
+    document.querySelectorAll('.admin-tab').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    document.getElementById(`tab-${name}`).style.display = 'block';
+    if (btn) btn.classList.add('active');
+    const loaders = { overview: loadStats, events: loadEvents, pending: loadPending, sales: loadSales, users: loadUsers };
+    if (loaders[name]) loaders[name]();
+  }
+
+  // STATS
+  async function loadStats() {
+    try {
+      const res  = await fetch('/api/admin/stats', { headers: H });
+      const json = await res.json();
+      const d    = json.data;
+      document.getElementById('sEvents').textContent  = d.totalEvents;
+      document.getElementById('sPending').textContent = d.pendingEvents;
+      document.getElementById('sUsers').textContent   = d.totalUsers;
+      document.getElementById('sSales').textContent   = d.totalSales;
+      document.getElementById('sTickets').textContent = d.totalTickets;
+      document.getElementById('sRevenue').textContent = d.totalRevenue.toLocaleString('pt-AO');
+      if (d.pendingEvents > 0) {
+        document.getElementById('pendingBadge').textContent = d.pendingEvents;
+        document.getElementById('pendingBadge').style.display = 'inline-block';
+      }
+    } catch { checkAuth(); }
+  }
+
+  // EVENTOS
+  async function loadEvents() {
+    const res  = await fetch('/api/admin/events', { headers: H });
+    const json = await res.json();
+    document.getElementById('eventsTableBody').innerHTML = json.data
+      .filter(e => e.status === 'approved')
+      .map(e => `<tr>
+        <td>${e.emoji} ${e.name}</td>
+        <td>${new Date(e.date).toLocaleDateString('pt-PT')}</td>
+        <td>${e.price.toLocaleString('pt-AO')} AOA</td>
+        <td>${e.totalSeats}</td>
+        <td>${e.soldSeats}</td>
+        <td><span class="status-badge status-valid">✅ Activo</span></td>
+        <td><button class="btn-delete" onclick="deleteEvent('${e.id}')">Eliminar</button></td>
+      </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">Nenhum evento activo.</td></tr>';
+  }
+
+  async function deleteEvent(id) {
+    if (!confirm('Eliminar este evento?')) return;
+    await fetch(`/api/admin/events/${id}`, { method: 'DELETE', headers: H });
+    loadEvents(); loadStats();
+  }
+
+  function toggleAddForm() {
+    const f = document.getElementById('addEventForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  }
+
+  async function createEvent() {
+    const errBox = document.getElementById('addEventError');
+    errBox.style.display = 'none';
+
+    // Validação antes de enviar
+    const name     = document.getElementById('nName').value.trim();
+    const date     = document.getElementById('nDate').value;
+    const time     = document.getElementById('nTime').value;
+    const location = document.getElementById('nLoc').value.trim();
+    const price    = document.getElementById('nPrice').value;
+    const seats    = document.getElementById('nSeats').value;
+
+    if (!name || !date || !time || !location || !price || !seats) {
+      errBox.textContent = 'Preencha todos os campos obrigatórios: Nome, Data, Hora, Local, Preço e Lugares.';
+      errBox.style.display = 'block';
+      errBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('name',        name);
+    formData.append('date',        date);
+    formData.append('time',        time);
+    formData.append('location',    location);
+    formData.append('price',       price);
+    formData.append('totalSeats',  seats);
+    formData.append('category',    document.getElementById('nCat').value);
+    formData.append('emoji',       document.getElementById('nEmoji').value.trim() || '🎟️');
+    formData.append('description', document.getElementById('nDesc').value.trim());
+
+    const cover  = document.getElementById('nCover').files[0];
+    const poster = document.getElementById('nPoster').files[0];
+    if (cover)  formData.append('cover',  cover);
+    if (poster) formData.append('poster', poster);
+
+    try {
+      const res  = await fetch('/api/admin/events', { method: 'POST', headers: { 'x-admin-token': token }, body: formData });
+      const json = await res.json();
+      if (json.success) {
+        // Limpar formulário
+        ['nName','nDate','nTime','nLoc','nPrice','nSeats','nDesc','nEmoji'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('nCover').value  = '';
+        document.getElementById('nPoster').value = '';
+        toggleAddForm();
+        loadEvents();
+        loadStats();
+        alert('✅ Evento criado com sucesso!');
+      } else {
+        errBox.textContent = json.message;
+        errBox.style.display = 'block';
+      }
+    } catch (err) {
+      errBox.textContent = 'Erro de comunicação com o servidor. Tente novamente.';
+      errBox.style.display = 'block';
+    }
+  }
+
+  // PENDENTES
+  async function loadPending() {
+    const res  = await fetch('/api/admin/events', { headers: H });
+    const json = await res.json();
+    const pending = json.data.filter(e => e.status === 'pending');
+    document.getElementById('pendingCount').textContent = `${pending.length} pendente(s)`;
+    const div = document.getElementById('pendingList');
+    if (!pending.length) { div.innerHTML = '<div class="purchase-form-box" style="text-align:center"><p style="color:var(--text-muted);padding:40px">Nenhum evento pendente de aprovação.</p></div>'; return; }
+    div.innerHTML = pending.map(e => `
+      <div class="pending-card">
+        <div class="pending-card-header">
+          ${e.coverUrl ? `<img src="${e.coverUrl}" class="pending-cover">` : `<div class="pending-emoji">${e.emoji}</div>`}
+          <div class="pending-info">
+            <h3>${e.name}</h3>
+            <p>📅 ${new Date(e.date).toLocaleDateString('pt-PT')} às ${e.time}h</p>
+            <p>📍 ${e.location}</p>
+            <p>💰 ${parseFloat(e.price).toLocaleString('pt-AO')} AOA &nbsp;|&nbsp; 🪑 ${e.totalSeats} lugares</p>
+            <p style="color:var(--text-muted);font-size:0.82rem;margin-top:4px">Submetido por: <strong>${e.submittedByName}</strong></p>
+          </div>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.88rem;margin:12px 0">${e.description}</p>
+        ${e.posterUrl ? `<img src="${e.posterUrl}" style="max-width:160px;border-radius:8px;margin-bottom:12px">` : ''}
+        <div class="pending-actions">
+          <button class="btn-approve" onclick="approveEvent('${e.id}')">✅ Aprovar e Publicar</button>
+          <button class="btn-reject"  onclick="rejectEvent('${e.id}')">❌ Rejeitar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function approveEvent(id) {
+    await fetch(`/api/admin/events/${id}/approve`, { method: 'PUT', headers: H });
+    loadPending(); loadStats();
+  }
+  async function rejectEvent(id) {
+    await fetch(`/api/admin/events/${id}/reject`, { method: 'PUT', headers: H });
+    loadPending(); loadStats();
+  }
+
+  // VENDAS
+  async function loadSales() {
+    const res  = await fetch('/api/admin/sales', { headers: H });
+    const json = await res.json();
+    document.getElementById('salesCount').textContent = `${json.data.length} vendas`;
+    document.getElementById('salesTableBody').innerHTML = json.data.length
+      ? json.data.map(s => `<tr>
+          <td><code style="color:var(--accent);font-size:0.78rem">${s.ticketCode}</code></td>
+          <td>${s.eventName}</td>
+          <td>${s.customerName}<br><small style="color:var(--text-muted)">${s.customerEmail}</small></td>
+          <td>${s.quantity}</td>
+          <td>${s.totalPrice.toLocaleString('pt-AO')} AOA</td>
+          <td>${new Date(s.purchaseDate).toLocaleString('pt-PT')}</td>
+          <td><span class="status-badge ${s.validated ? 'status-used' : 'status-valid'}">${s.validated ? '✅ Usado' : '🟢 Válido'}</span></td>
+          <td><a href="/tickets/${s.pdfFile}" class="btn-download" target="_blank">⬇ PDF</a></td>
+        </tr>`).join('')
+      : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Nenhuma venda registada.</td></tr>';
+  }
+
+  // UTILIZADORES
+  async function loadUsers() {
+    const res  = await fetch('/api/admin/users', { headers: H });
+    const json = await res.json();
+    document.getElementById('usersCount').textContent = `${json.data.length} utilizadores`;
+    document.getElementById('usersTableBody').innerHTML = json.data.map(u => `<tr>
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td><span class="status-badge ${u.role === 'admin' ? 'status-valid' : 'status-used'}">${u.role === 'admin' ? '🔐 Admin' : '👤 User'}</span></td>
+      <td>${new Date(u.createdAt).toLocaleDateString('pt-PT')}</td>
+    </tr>`).join('');
+  }
+
+  // VALIDAÇÃO
+  async function adminValidate() {
+    const code = document.getElementById('adminTicketCode').value.trim();
+    const resultDiv = document.getElementById('adminValidResult');
+    if (!code) return;
+    const res  = await fetch('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': token }, body: JSON.stringify({ ticketCode: code }) });
+    const json = await res.json();
+    if (json.valid) {
+      const d = json.data;
+      resultDiv.innerHTML = `<div class="validate-box valid"><div class="validate-icon">✅</div><h3>Bilhete Válido</h3>
+        <div class="val-details">
+          <div class="val-row"><span>Evento</span><strong>${d.eventName}</strong></div>
+          <div class="val-row"><span>Titular</span><strong>${d.customerName}</strong></div>
+          <div class="val-row"><span>E-mail</span><strong>${d.customerEmail}</strong></div>
+          <div class="val-row"><span>Quantidade</span><strong>${d.quantity}</strong></div>
+        </div></div>`;
+    } else {
+      resultDiv.innerHTML = `<div class="validate-box invalid"><div class="validate-icon">❌</div><h3>Inválido</h3><p>${json.message}</p></div>`;
+    }
+    resultDiv.style.display = 'block';
+    loadSales();
+  }
+
+  // CREDENCIAIS
+  async function saveCredentials() {
+    const errBox = document.getElementById('settingsError');
+    const sucBox = document.getElementById('settingsSuccess');
+    errBox.style.display = 'none'; sucBox.style.display = 'none';
+    const username        = document.getElementById('newUsername').value.trim();
+    const currentPassword = document.getElementById('currentPass').value;
+    const newPassword     = document.getElementById('newPass').value;
+    const confirmPassword = document.getElementById('confirmPass').value;
+    if (!currentPassword) { errBox.textContent = 'Introduza a senha actual.'; errBox.style.display = 'block'; return; }
+    if (newPassword && newPassword !== confirmPassword) { errBox.textContent = 'As senhas não coincidem.'; errBox.style.display = 'block'; return; }
+    const res  = await fetch('/api/admin/credentials', { method: 'PUT', headers: H, body: JSON.stringify({ username, currentPassword, newPassword }) });
+    const json = await res.json();
+    if (json.success) {
+      sucBox.textContent = json.message;
+      sucBox.style.display = 'block';
+      setTimeout(() => { localStorage.removeItem('adminToken'); window.location.href = '/admin'; }, 2000);
+    } else { errBox.textContent = json.message; errBox.style.display = 'block'; }
+  }
+
+  async function doLogout() {
+    await fetch('/api/admin/logout', { method: 'POST', headers: H });
+    localStorage.removeItem('adminToken');
+    window.location.href = '/admin';
+  }
+
+  function checkAuth() { localStorage.removeItem('adminToken'); window.location.href = '/admin'; }
+
+  loadStats();
+</script>
+</body>
+</html>

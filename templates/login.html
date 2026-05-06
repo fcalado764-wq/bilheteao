@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Sessão — BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-box">
+      <a href="/" class="auth-logo">🎟️ BilheteAO</a>
+      <h1 class="auth-title">Iniciar Sessão</h1>
+      <p class="auth-sub">Bem-vindo de volta!</p>
+
+      <div id="authError" class="form-error" style="display:none"></div>
+
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button class="btn-purchase" onclick="doLogin()">Entrar</button>
+
+      <p class="auth-switch">Não tem conta? <a href="/register">Criar conta</a></p>
+      <a href="/" class="auth-back">← Voltar aos eventos</a>
+    </div>
+  </div>
+
+  <script>
+    // Se já tiver sessão, redirecionar
+    if (localStorage.getItem('authToken')) window.location.href = '/';
+
+    async function doLogin() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const errBox   = document.getElementById('authError');
+      errBox.style.display = 'none';
+
+      if (!email || !password) {
+        errBox.textContent = 'Preencha todos os campos.';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res  = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const json = await res.json();
+
+        if (json.success) {
+          localStorage.setItem('authToken', json.token);
+          localStorage.setItem('userName',  json.user.name);
+          localStorage.setItem('userEmail', json.user.email);
+          // Redirecionar para página anterior ou home
+          const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
+          window.location.href = redirect;
+        } else {
+          errBox.textContent = json.message;
+          errBox.style.display = 'block';
+        }
+      } catch {
+        errBox.textContent = 'Erro de comunicação. Tente novamente.';
+        errBox.style.display = 'block';
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  </script>
+</body>
+</html>

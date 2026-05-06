@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compra Confirmada — BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:8px;color:inherit">
+        <span class="brand-icon">🎟️</span>
+        <span class="brand-name">BilheteAO</span>
+      </a>
+    </div>
+  </nav>
+
+  <main class="main-content" style="padding-top:60px">
+    <div class="container" style="max-width:560px;text-align:center">
+
+      <div class="success-animation">
+        <div class="checkmark">✓</div>
+      </div>
+
+      <h1 class="success-title">Compra Concluída!</h1>
+      <p class="success-sub">O seu bilhete foi gerado com sucesso. O download deve ter iniciado automaticamente.</p>
+
+      <div class="confirmation-card">
+        <div class="conf-row">
+          <span class="conf-label">Evento</span>
+          <span class="conf-value" id="confEvent">—</span>
+        </div>
+        <div class="conf-row">
+          <span class="conf-label">Titular</span>
+          <span class="conf-value" id="confName">—</span>
+        </div>
+        <div class="conf-row">
+          <span class="conf-label">Código do Bilhete</span>
+          <span class="conf-value conf-code" id="confTicket">—</span>
+        </div>
+        <div class="conf-row">
+          <span class="conf-label">Total Pago</span>
+          <span class="conf-value conf-price" id="confPrice">—</span>
+        </div>
+      </div>
+
+      <div class="confirmation-actions">
+        <a id="downloadBtn" href="#" class="btn-purchase" style="text-decoration:none;display:block;margin-bottom:12px">
+          ⬇️ Descarregar Bilhete PDF
+        </a>
+        <a href="/" class="btn-secondary">← Ver Mais Eventos</a>
+      </div>
+
+      <p class="disclaimer-box">
+        ⚠️ Guarde o seu bilhete em PDF. Deverá apresentar o QR Code na entrada do evento para validação.
+      </p>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2025 BilheteAO — Sistema de Venda de Bilhetes Online</p>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    document.getElementById('confEvent').textContent = params.get('event') || '—';
+    document.getElementById('confName').textContent = params.get('name') || '—';
+    document.getElementById('confTicket').textContent = params.get('ticket') || '—';
+    const price = parseFloat(params.get('price'));
+    document.getElementById('confPrice').textContent = price ? price.toLocaleString('pt-AO') + ' AOA' : '—';
+
+    const pdfUrl = params.get('pdf');
+    if (pdfUrl) {
+      document.getElementById('downloadBtn').href = pdfUrl;
+    }
+  </script>
+</body>
+</html>
