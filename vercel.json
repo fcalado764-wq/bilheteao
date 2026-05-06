@@ -8,8 +8,24 @@
   ],
   "routes": [
     {
+      "src": "/static/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/tickets/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "/server.js"
     }
   ]
 }
