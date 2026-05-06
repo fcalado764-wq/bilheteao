@@ -3,43 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Iniciar Sessão — BilheteAO</title>
+  <title>Iniciar Sessão | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="auth-body">
   <div class="auth-container">
-    <div class="auth-box">
-      <a href="/" class="auth-logo">🎟️ BilheteAO</a>
-      <h1 class="auth-title">Iniciar Sessão</h1>
-      <p class="auth-sub">Bem-vindo de volta!</p>
+    <div class="auth-shell">
+      <section class="auth-box">
+        <a href="/" class="auth-logo">BilheteAO</a>
+        <h1 class="auth-title">Iniciar sessão</h1>
+        <p class="auth-sub">Entre para comprar bilhetes, submeter eventos e validar entradas.</p>
 
-      <div id="authError" class="form-error" style="display:none"></div>
+        <div id="authError" class="form-error" style="display:none"></div>
 
-      <div class="form-group">
-        <label class="form-label">E-mail</label>
-        <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Senha</label>
-        <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
-      </div>
+        <div class="form-group">
+          <label class="form-label">E-mail</label>
+          <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Senha</label>
+          <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="current-password">
+        </div>
 
-      <button class="btn-purchase" onclick="doLogin()">Entrar</button>
+        <button class="btn-purchase" type="button" onclick="doLogin()">Entrar</button>
 
-      <p class="auth-switch">Não tem conta? <a href="/register">Criar conta</a></p>
-      <a href="/" class="auth-back">← Voltar aos eventos</a>
+        <p class="auth-switch">Não tem conta? <a href="/register">Criar conta</a></p>
+        <a href="/" class="auth-back">← Voltar aos eventos</a>
+      </section>
+
+      <aside class="auth-visual">
+        <span class="section-kicker">Conta digital</span>
+        <h2>Os seus bilhetes ficam prontos para baixar em segundos.</h2>
+        <p>Depois da compra, o sistema gera um PDF com QR Code para apresentar na entrada do evento.</p>
+      </aside>
     </div>
   </div>
 
   <script>
-    // Se já tiver sessão, redirecionar
     if (localStorage.getItem('authToken')) window.location.href = '/';
 
     async function doLogin() {
-      const email    = document.getElementById('email').value.trim();
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value.trim();
-      const errBox   = document.getElementById('authError');
+      const errBox = document.getElementById('authError');
       errBox.style.display = 'none';
 
       if (!email || !password) {
@@ -49,7 +56,7 @@
       }
 
       try {
-        const res  = await fetch('/api/auth/login', {
+        const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
@@ -58,9 +65,8 @@
 
         if (json.success) {
           localStorage.setItem('authToken', json.token);
-          localStorage.setItem('userName',  json.user.name);
+          localStorage.setItem('userName', json.user.name);
           localStorage.setItem('userEmail', json.user.email);
-          // Redirecionar para página anterior ou home
           const redirect = new URLSearchParams(window.location.search).get('redirect') || '/';
           window.location.href = redirect;
         } else {
@@ -73,7 +79,9 @@
       }
     }
 
-    document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') doLogin();
+    });
   </script>
 </body>
 </html>

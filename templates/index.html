@@ -3,129 +3,294 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BilheteAO — Eventos em Angola</title>
+  <title>BilheteAO | Eventos em Angola</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
   <nav class="navbar">
     <div class="nav-brand">
-      <span class="brand-icon">🎟️</span>
-      <span class="brand-name">BilheteAO</span>
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+        <span class="brand-icon">B</span>
+        <span class="brand-name">BilheteAO</span>
+      </a>
     </div>
     <div class="nav-links">
       <a href="/" class="nav-link active">Eventos</a>
       <a href="/validate" class="nav-link">Validar</a>
-      <a href="/submit-event" class="nav-link">Propor Evento</a>
+      <a href="/submit-event" class="nav-link">Propor evento</a>
       <div id="navAuth"></div>
       <a href="/admin" class="nav-link nav-admin">Admin</a>
     </div>
   </nav>
 
-  <section class="hero">
-    <div class="hero-content">
-      <h1 class="hero-title">Eventos em <span class="accent">Angola</span></h1>
-      <p class="hero-sub">Compre o seu bilhete em segundos. Receba em PDF. Aceda ao evento.</p>
+  <section class="home-hero">
+    <div class="container hero-shell">
+      <div class="hero-copy">
+        <span class="hero-kicker">Agenda ao vivo</span>
+        <h1>Encontre o próximo evento que vale sair de casa.</h1>
+        <p>Explore eventos em Angola, filtre por categoria, veja lotação em tempo real e compre bilhetes digitais com PDF e QR Code.</p>
+        <div class="hero-actions">
+          <a href="#catalogo" class="btn-purchase" style="text-decoration:none">Ver eventos</a>
+          <a href="/submit-event" class="btn-secondary" style="text-decoration:none">Publicar evento</a>
+        </div>
+      </div>
+
+      <aside class="hero-panel" id="heroPanel" aria-live="polite">
+        <div class="hero-panel-content">
+          <span class="section-kicker">A carregar</span>
+          <h2 class="hero-panel-title">A procurar eventos disponíveis...</h2>
+          <div class="hero-panel-meta">
+            <span>Bilhetes digitais</span>
+            <span>PDF automático</span>
+          </div>
+        </div>
+      </aside>
     </div>
   </section>
 
-  <section class="filters-section">
+  <section class="catalog-bar" id="catalogo">
     <div class="container">
+      <div class="catalog-controls">
+        <label class="search-wrap" for="searchInput">
+          <input id="searchInput" class="search-input" type="search" placeholder="Pesquisar por nome, local ou descrição">
+        </label>
+        <select id="sortSelect" class="select-input" aria-label="Ordenar eventos">
+          <option value="soon">Mais próximos</option>
+          <option value="available">Mais lugares</option>
+          <option value="popular">Mais procurados</option>
+          <option value="price">Menor preço</option>
+        </select>
+      </div>
       <div class="filter-tags" id="filterTags">
         <button class="tag active" data-filter="all">Todos</button>
-        <button class="tag" data-filter="Música">🎵 Música</button>
-        <button class="tag" data-filter="Tecnologia">💻 Tecnologia</button>
-        <button class="tag" data-filter="Teatro">🎭 Teatro</button>
-        <button class="tag" data-filter="Desporto">🏃 Desporto</button>
-        <button class="tag" data-filter="Arte">🎨 Arte</button>
+        <button class="tag" data-filter="Música">Música</button>
+        <button class="tag" data-filter="Tecnologia">Tecnologia</button>
+        <button class="tag" data-filter="Teatro">Teatro</button>
+        <button class="tag" data-filter="Desporto">Desporto</button>
+        <button class="tag" data-filter="Arte">Arte</button>
+        <button class="tag" data-filter="Geral">Geral</button>
       </div>
     </div>
   </section>
 
   <main class="main-content">
     <div class="container">
+      <header class="section-head">
+        <div>
+          <span class="section-kicker">Catálogo</span>
+          <h2 class="section-title">Eventos disponíveis</h2>
+          <p class="section-sub" id="resultLabel">A carregar a programação...</p>
+        </div>
+        <div class="stats-strip" id="statsStrip" aria-label="Resumo de eventos"></div>
+      </header>
+
       <div id="loadingState" class="loading-state">
-        <div class="spinner"></div><p>A carregar eventos...</p>
+        <div class="spinner"></div>
+        <p>A carregar eventos...</p>
       </div>
       <div class="events-grid" id="eventsGrid"></div>
     </div>
   </main>
 
   <footer class="footer">
-    <p>© 2025 BilheteAO — Sistema de Venda de Bilhetes Online</p>
+    <p>© 2026 BilheteAO. Bilhetes digitais para eventos em Angola.</p>
   </footer>
 
   <script src="/js/auth.js"></script>
+  <script src="/js/public-ui.js"></script>
   <script>
-    // Mostrar link "Propor Evento" na navbar apenas se autenticado
-    // (já tratado pelo auth.js via navAuth)
-    let allEvents = [], activeFilter = 'all';
+    const UI = window.BilheteUI;
+    const grid = document.getElementById('eventsGrid');
+    const loadingState = document.getElementById('loadingState');
+    const resultLabel = document.getElementById('resultLabel');
+    const statsStrip = document.getElementById('statsStrip');
+    const filterTags = document.getElementById('filterTags');
+    const searchInput = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
+
+    const state = {
+      allEvents: [],
+      activeFilter: 'all',
+      query: '',
+      sort: 'soon'
+    };
+
+    function normalize(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function eventCoverStyle(event) {
+      if (!event.coverUrl) return '';
+      return `style="background-image:url('${encodeURI(event.coverUrl)}')"`;
+    }
 
     async function loadEvents() {
       try {
-        const res  = await fetch('/api/events');
+        const res = await fetch('/api/events');
         const json = await res.json();
-        allEvents  = json.data;
-        renderEvents(allEvents);
-        document.getElementById('loadingState').style.display = 'none';
+        state.allEvents = Array.isArray(json.data) ? json.data : [];
+        loadingState.style.display = 'none';
+        render();
       } catch {
-        document.getElementById('loadingState').innerHTML = '<p style="color:#e94560">Erro ao carregar eventos.</p>';
+        loadingState.innerHTML = '<p style="color:var(--error)">Erro ao carregar eventos.</p>';
       }
     }
 
-    function renderEvents(events) {
-      const grid     = document.getElementById('eventsGrid');
-      const filtered = activeFilter === 'all' ? events : events.filter(e => e.category === activeFilter);
+    function visibleEvents() {
+      const query = normalize(state.query);
+      const filtered = state.allEvents.filter((event) => {
+        const matchesFilter = state.activeFilter === 'all' || normalize(event.category) === normalize(state.activeFilter);
+        const haystack = normalize(`${event.name} ${event.location} ${event.description} ${event.category}`);
+        return matchesFilter && (!query || haystack.includes(query));
+      });
 
-      if (!filtered.length) {
-        grid.innerHTML = '<div class="no-events"><p>Nenhum evento nesta categoria.</p></div>';
+      return filtered.sort((a, b) => {
+        if (state.sort === 'available') return (b.availableSeats || 0) - (a.availableSeats || 0);
+        if (state.sort === 'popular') return (b.soldSeats || 0) - (a.soldSeats || 0);
+        if (state.sort === 'price') return (a.price || 0) - (b.price || 0);
+        return new Date(a.date) - new Date(b.date);
+      });
+    }
+
+    function renderStats(events) {
+      const totalSeats = events.reduce((sum, event) => sum + Number(event.availableSeats || 0), 0);
+      const categories = new Set(events.map((event) => event.category).filter(Boolean));
+      const nextEvent = events.find((event) => !event.soldOut);
+      statsStrip.innerHTML = `
+        <div class="stat-pill"><strong>${events.length}</strong><span>eventos</span></div>
+        <div class="stat-pill"><strong>${totalSeats}</strong><span>lugares</span></div>
+        <div class="stat-pill"><strong>${categories.size}</strong><span>categorias</span></div>
+        <div class="stat-pill"><strong>${nextEvent ? UI.formatDate(nextEvent.date).split(' ')[0] : '--'}</strong><span>próximo</span></div>
+      `;
+    }
+
+    function renderHero(events) {
+      const heroPanel = document.getElementById('heroPanel');
+      const featured = events.find((event) => !event.soldOut) || events[0];
+
+      if (!featured) {
+        heroPanel.innerHTML = `
+          <div class="hero-panel-content">
+            <span class="section-kicker">Sem eventos</span>
+            <h2 class="hero-panel-title">Ainda não há eventos publicados.</h2>
+            <div class="hero-panel-meta"><span>Volte em breve</span></div>
+          </div>
+        `;
         return;
       }
 
-      grid.innerHTML = filtered.map(event => {
-        const dateStr   = new Date(event.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
-        const occupancy = Math.round((event.soldSeats / event.totalSeats) * 100);
-        const coverBg   = event.coverUrl
-          ? `style="background-image:url('${event.coverUrl}');background-size:cover;background-position:center"`
-          : '';
+      heroPanel.innerHTML = `
+        ${featured.coverUrl ? `<div class="hero-panel-image" ${eventCoverStyle(featured)}></div>` : ''}
+        <div class="hero-panel-content">
+          <span class="section-kicker">Próximo destaque</span>
+          <h2 class="hero-panel-title">${UI.escapeHTML(featured.name)}</h2>
+          <div class="hero-panel-meta">
+            <span>${UI.escapeHTML(featured.category || 'Evento')}</span>
+            <span>${UI.formatDate(featured.date)}</span>
+            <span>${UI.firstLocationPart(featured.location)}</span>
+          </div>
+        </div>
+      `;
+      heroPanel.onclick = () => { window.location.href = `/event/${featured.id}`; };
+      heroPanel.style.cursor = 'pointer';
+    }
 
+    function renderEvents(events) {
+      if (!events.length) {
+        grid.innerHTML = '<div class="no-events"><p>Nenhum evento combina com a pesquisa atual.</p></div>';
+        return;
+      }
+
+      grid.innerHTML = events.map((event) => {
+        const occupancy = UI.seatsPercent(event);
+        const soldOut = Boolean(event.soldOut);
         return `
-          <article class="event-card ${event.soldOut ? 'sold-out' : ''}" onclick="location.href='/event/${event.id}'">
-            <div class="card-cover" ${coverBg}>
-              ${!event.coverUrl ? `<span class="card-emoji-big">${event.emoji}</span>` : ''}
+          <article class="event-card ${soldOut ? 'sold-out' : ''}" data-event-id="${UI.escapeHTML(event.id)}" tabindex="0" role="button" aria-label="Abrir ${UI.escapeHTML(event.name)}">
+            <div class="card-cover" ${eventCoverStyle(event)}>
+              <span class="card-date">${UI.formatDate(event.date)}</span>
+              ${soldOut ? '<span class="card-status">Esgotado</span>' : ''}
+              ${!event.coverUrl ? `<span class="card-emoji-big">${UI.escapeHTML(event.emoji || 'B')}</span>` : ''}
             </div>
             <div class="card-body">
-              <span class="card-category">${event.category}</span>
-              <h2 class="card-title">${event.name}</h2>
-              <p class="card-desc">${event.description}</p>
+              <span class="card-category">${UI.escapeHTML(event.category || 'Evento')}</span>
+              <h2 class="card-title">${UI.escapeHTML(event.name)}</h2>
+              <p class="card-desc">${UI.escapeHTML(event.description || 'Evento sem descrição disponível.')}</p>
               <div class="card-meta">
-                <span class="meta-item">📅 ${dateStr}</span>
-                <span class="meta-item">🕐 ${event.time}h</span>
-                <span class="meta-item">📍 ${event.location.split(',')[0]}</span>
+                <span class="meta-item">${UI.escapeHTML(event.time || '--:--')}h</span>
+                <span class="meta-item">${UI.escapeHTML(UI.firstLocationPart(event.location))}</span>
               </div>
               <div class="card-occupancy">
                 <div class="occ-bar"><div class="occ-fill" style="width:${occupancy}%"></div></div>
-                <span class="occ-text">${event.availableSeats} lugares disponíveis</span>
+                <span class="occ-text">${Number(event.availableSeats || 0)} lugares disponíveis</span>
               </div>
               <div class="card-footer">
-                <span class="card-price">${event.price.toLocaleString('pt-AO')} AOA</span>
-                <button class="btn-buy ${event.soldOut ? 'btn-disabled' : ''}">
-                  ${event.soldOut ? 'Esgotado' : 'Comprar →'}
-                </button>
+                <span class="card-price">${UI.formatMoney(event.price)}</span>
+                <button class="btn-buy" type="button">${soldOut ? 'Ver detalhe' : 'Comprar'}</button>
               </div>
             </div>
-          </article>`;
+          </article>
+        `;
       }).join('');
+
+      attachCardInteractions();
     }
 
-    document.getElementById('filterTags').addEventListener('click', e => {
-      if (e.target.classList.contains('tag')) {
-        document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        activeFilter = e.target.dataset.filter;
-        renderEvents(allEvents);
-      }
+    function attachCardInteractions() {
+      grid.querySelectorAll('.event-card').forEach((card) => {
+        const open = () => { window.location.href = `/event/${card.dataset.eventId}`; };
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+          }
+        });
+
+        if (window.matchMedia('(pointer:fine)').matches) {
+          card.addEventListener('pointermove', (event) => {
+            const rect = card.getBoundingClientRect();
+            const x = (event.clientX - rect.left) / rect.width - 0.5;
+            const y = (event.clientY - rect.top) / rect.height - 0.5;
+            card.style.setProperty('--ry', `${x * 4}deg`);
+            card.style.setProperty('--rx', `${y * -4}deg`);
+          });
+          card.addEventListener('pointerleave', () => {
+            card.style.removeProperty('--rx');
+            card.style.removeProperty('--ry');
+          });
+        }
+      });
+    }
+
+    function render() {
+      const events = visibleEvents();
+      renderHero(state.allEvents);
+      renderStats(events);
+      renderEvents(events);
+      resultLabel.textContent = `${events.length} evento(s) encontrados`;
+    }
+
+    filterTags.addEventListener('click', (event) => {
+      const button = event.target.closest('.tag');
+      if (!button) return;
+      filterTags.querySelectorAll('.tag').forEach((tag) => tag.classList.remove('active'));
+      button.classList.add('active');
+      state.activeFilter = button.dataset.filter;
+      render();
+    });
+
+    searchInput.addEventListener('input', (event) => {
+      state.query = event.target.value;
+      render();
+    });
+
+    sortSelect.addEventListener('change', (event) => {
+      state.sort = event.target.value;
+      render();
     });
 
     loadEvents();

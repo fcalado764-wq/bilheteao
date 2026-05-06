@@ -3,80 +3,82 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Compra Confirmada — BilheteAO</title>
+  <title>Compra Confirmada | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
   <nav class="navbar">
     <div class="nav-brand">
-      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:8px;color:inherit">
-        <span class="brand-icon">🎟️</span>
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+        <span class="brand-icon">B</span>
         <span class="brand-name">BilheteAO</span>
       </a>
     </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Eventos</a>
+      <a href="/validate" class="nav-link">Validar</a>
+      <div id="navAuth"></div>
+    </div>
   </nav>
 
-  <main class="main-content" style="padding-top:60px">
-    <div class="container" style="max-width:560px;text-align:center">
-
+  <main class="main-content">
+    <div class="container" style="max-width:620px;text-align:center">
       <div class="success-animation">
         <div class="checkmark">✓</div>
       </div>
 
-      <h1 class="success-title">Compra Concluída!</h1>
-      <p class="success-sub">O seu bilhete foi gerado com sucesso. O download deve ter iniciado automaticamente.</p>
+      <span class="section-kicker" style="margin-left:auto;margin-right:auto">Compra concluída</span>
+      <h1 class="success-title">Bilhete gerado com sucesso.</h1>
+      <p class="success-sub">O download do PDF deve ter iniciado automaticamente. Também pode descarregar novamente abaixo.</p>
 
       <div class="confirmation-card">
         <div class="conf-row">
           <span class="conf-label">Evento</span>
-          <span class="conf-value" id="confEvent">—</span>
+          <span class="conf-value" id="confEvent">--</span>
         </div>
         <div class="conf-row">
           <span class="conf-label">Titular</span>
-          <span class="conf-value" id="confName">—</span>
+          <span class="conf-value" id="confName">--</span>
         </div>
         <div class="conf-row">
-          <span class="conf-label">Código do Bilhete</span>
-          <span class="conf-value conf-code" id="confTicket">—</span>
+          <span class="conf-label">Código do bilhete</span>
+          <span class="conf-value conf-code" id="confTicket">--</span>
         </div>
         <div class="conf-row">
-          <span class="conf-label">Total Pago</span>
-          <span class="conf-value conf-price" id="confPrice">—</span>
+          <span class="conf-label">Total pago</span>
+          <span class="conf-value conf-price" id="confPrice">--</span>
         </div>
       </div>
 
       <div class="confirmation-actions">
-        <a id="downloadBtn" href="#" class="btn-purchase" style="text-decoration:none;display:block;margin-bottom:12px">
-          ⬇️ Descarregar Bilhete PDF
-        </a>
-        <a href="/" class="btn-secondary">← Ver Mais Eventos</a>
+        <a id="downloadBtn" href="#" class="btn-purchase" style="text-decoration:none">Descarregar PDF</a>
+        <a href="/" class="btn-secondary">Ver mais eventos</a>
       </div>
 
       <p class="disclaimer-box">
-        ⚠️ Guarde o seu bilhete em PDF. Deverá apresentar o QR Code na entrada do evento para validação.
+        Guarde o PDF. O QR Code deve ser apresentado na entrada do evento para validação.
       </p>
-
     </div>
   </main>
 
   <footer class="footer">
-    <p>© 2025 BilheteAO — Sistema de Venda de Bilhetes Online</p>
+    <p>© 2026 BilheteAO.</p>
   </footer>
 
+  <script src="/js/auth.js"></script>
+  <script src="/js/public-ui.js"></script>
   <script>
+    const UI = window.BilheteUI;
     const params = new URLSearchParams(window.location.search);
-    document.getElementById('confEvent').textContent = params.get('event') || '—';
-    document.getElementById('confName').textContent = params.get('name') || '—';
-    document.getElementById('confTicket').textContent = params.get('ticket') || '—';
-    const price = parseFloat(params.get('price'));
-    document.getElementById('confPrice').textContent = price ? price.toLocaleString('pt-AO') + ' AOA' : '—';
+    document.getElementById('confEvent').textContent = params.get('event') || '--';
+    document.getElementById('confName').textContent = params.get('name') || '--';
+    document.getElementById('confTicket').textContent = params.get('ticket') || '--';
+    const price = Number(params.get('price'));
+    document.getElementById('confPrice').textContent = price ? UI.formatMoney(price) : '--';
 
     const pdfUrl = params.get('pdf');
-    if (pdfUrl) {
-      document.getElementById('downloadBtn').href = pdfUrl;
-    }
+    if (pdfUrl) document.getElementById('downloadBtn').href = pdfUrl;
   </script>
 </body>
 </html>

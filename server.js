@@ -331,7 +331,6 @@ app.get('/api/events/my/submissions', requireAuth, async (req, res) => {
 app.post('/api/purchase', requireAuth, async (req, res) => {
   const { eventId, quantity } = req.body;
   const qty = parseInt(quantity) || 1;
-
   // Buscar evento
   const { data: event, error: evErr } = await supabaseAdmin
     .from('events').select('*').eq('id', eventId).eq('status', 'approved').single();

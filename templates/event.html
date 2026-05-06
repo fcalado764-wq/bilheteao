@@ -3,198 +3,219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Evento — BilheteAO</title>
+  <title>Evento | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-brand">
-      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:8px;color:inherit">
-        <span class="brand-icon">🎟️</span><span class="brand-name">BilheteAO</span>
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+        <span class="brand-icon">B</span>
+        <span class="brand-name">BilheteAO</span>
       </a>
     </div>
     <div class="nav-links">
-      <a href="/" class="nav-link">← Eventos</a>
+      <a href="/" class="nav-link">Eventos</a>
+      <a href="/validate" class="nav-link">Validar</a>
       <div id="navAuth"></div>
     </div>
   </nav>
 
-  <main class="main-content" style="padding-top:40px">
-    <div class="container" style="max-width:760px">
+  <main class="main-content event-page">
+    <div class="container">
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div>
+        <p>A carregar evento...</p>
+      </div>
 
-      <div id="loadingState" class="loading-state"><div class="spinner"></div><p>A carregar...</p></div>
+      <div id="eventDetail" class="event-detail-layout" style="display:none">
+        <section class="event-stage">
+          <a href="/" class="back-link">← Voltar aos eventos</a>
+          <div class="event-hero-image" id="eventHeroImage">
+            <span class="event-emoji-large" id="eventEmoji"></span>
+          </div>
 
-      <div id="eventDetail" style="display:none">
+          <div class="event-detail-header">
+            <span class="event-category-badge" id="eventCategory"></span>
+            <h1 class="event-detail-title" id="eventName"></h1>
+            <p class="event-detail-desc" id="eventDesc"></p>
+          </div>
 
-        <!-- Cartaz / Capa -->
-        <div class="event-hero-image" id="eventHeroImage"></div>
+          <div class="detail-info-grid">
+            <div class="detail-info-item">
+              <span class="detail-label">Data</span>
+              <span class="detail-value" id="eventDate"></span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-label">Hora</span>
+              <span class="detail-value" id="eventTime"></span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-label">Local</span>
+              <span class="detail-value" id="eventLocation"></span>
+            </div>
+            <div class="detail-info-item">
+              <span class="detail-label">Lugares</span>
+              <span class="detail-value" id="eventSeats"></span>
+            </div>
+          </div>
 
-        <div class="event-detail-header">
-          <div class="event-emoji-large" id="eventEmoji"></div>
-          <span class="event-category-badge" id="eventCategory"></span>
-          <h1 class="event-detail-title" id="eventName"></h1>
-          <p class="event-detail-desc" id="eventDesc"></p>
-        </div>
+          <div id="posterSection" class="poster-section" style="display:none">
+            <p class="section-kicker">Cartaz oficial</p>
+            <img id="eventPoster" class="event-poster" src="" alt="Cartaz do evento">
+          </div>
+        </section>
 
-        <!-- Cartaz (se existir) -->
-        <div id="posterSection" style="display:none;margin-bottom:24px;text-align:center">
-          <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Cartaz do Evento</p>
-          <img id="eventPoster" src="" alt="Cartaz" style="max-width:300px;border-radius:12px;border:1px solid var(--border)">
-        </div>
+        <aside class="purchase-panel">
+          <span class="section-kicker">Compra segura</span>
+          <h2>Comprar bilhete</h2>
 
-        <div class="detail-info-grid">
-          <div class="detail-info-item"><span class="detail-label">📅 Data</span><span class="detail-value" id="eventDate"></span></div>
-          <div class="detail-info-item"><span class="detail-label">🕐 Hora</span><span class="detail-value" id="eventTime"></span></div>
-          <div class="detail-info-item"><span class="detail-label">📍 Local</span><span class="detail-value" id="eventLocation"></span></div>
-          <div class="detail-info-item"><span class="detail-label">🪑 Disponíveis</span><span class="detail-value" id="eventSeats"></span></div>
-        </div>
-
-        <!-- Formulário de compra -->
-        <div class="purchase-form-box">
-          <h2 class="form-title">Comprar Bilhete</h2>
-
-          <!-- Estado: não autenticado -->
           <div id="notLoggedIn" style="display:none">
             <div class="auth-notice">
-              <span style="font-size:2rem">🔐</span>
-              <h3>É necessário iniciar sessão</h3>
-              <p>Para comprar bilhetes, precisa de ter uma conta e iniciar sessão.</p>
-              <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
-                <a id="loginBtn" href="/login" class="btn-purchase" style="text-decoration:none;width:auto;padding:12px 28px">Iniciar Sessão</a>
-                <a href="/register" class="btn-secondary" style="width:auto;padding:12px 28px">Criar Conta</a>
+              <h3>Inicie sessão para comprar</h3>
+              <p>A sua conta fica ligada ao bilhete e ao PDF gerado.</p>
+              <div style="display:grid;gap:10px;margin-top:18px">
+                <a id="loginBtn" href="/login" class="btn-purchase" style="text-decoration:none">Iniciar sessão</a>
+                <a href="/register" class="btn-secondary">Criar conta</a>
               </div>
             </div>
           </div>
 
-          <!-- Estado: autenticado -->
           <div id="loggedInForm" style="display:none">
             <div class="buyer-info-box" id="buyerInfoBox"></div>
             <div id="formError" class="form-error" style="display:none"></div>
+
             <div class="form-group">
-              <label class="form-label">Quantidade de Bilhetes</label>
-              <select id="quantity" class="form-input">
-                <option value="1">1 Bilhete</option>
-                <option value="2">2 Bilhetes</option>
-                <option value="3">3 Bilhetes</option>
-                <option value="4">4 Bilhetes</option>
-                <option value="5">5 Bilhetes</option>
-              </select>
+              <label class="form-label">Quantidade de bilhetes</label>
+              <div class="ticket-stepper">
+                <button type="button" class="stepper-btn" onclick="changeQty(-1)" aria-label="Diminuir quantidade">-</button>
+                <input id="quantity" class="form-input quantity-input" type="number" min="1" value="1" readonly>
+                <button type="button" class="stepper-btn" onclick="changeQty(1)" aria-label="Aumentar quantidade">+</button>
+              </div>
             </div>
+
             <div class="price-summary">
-              <span>Total a pagar:</span>
+              <span>Total</span>
               <span class="price-total" id="priceTotal">0 AOA</span>
             </div>
-            <button class="btn-purchase" id="purchaseBtn" onclick="submitPurchase()">
-              <span id="btnText">🎟️ Confirmar Compra e Gerar Bilhete</span>
+
+            <button class="btn-purchase" id="purchaseBtn" type="button" onclick="submitPurchase()">
+              <span id="btnText">Confirmar compra</span>
               <div class="btn-spinner" id="btnSpinner" style="display:none"></div>
             </button>
-            <p class="form-disclaimer">Após a compra, o bilhete em PDF será gerado e o download iniciará automaticamente.</p>
+            <p class="form-disclaimer">Depois da compra, o PDF começa a descarregar automaticamente.</p>
           </div>
-        </div>
+        </aside>
       </div>
 
-      <div id="soldOutState" style="display:none;text-align:center;padding:60px 20px">
-        <div style="font-size:60px;margin-bottom:16px">😔</div>
-        <h2>Evento Esgotado</h2>
-        <p style="color:var(--text-muted)">Todos os lugares foram vendidos.</p>
-        <a href="/" class="btn-purchase" style="display:inline-block;width:auto;margin-top:20px;text-decoration:none">Ver outros eventos</a>
+      <div id="soldOutState" class="tool-panel" style="display:none;text-align:center;padding:54px 20px">
+        <span class="section-kicker">Esgotado</span>
+        <h2 class="section-title">Este evento já não tem lugares.</h2>
+        <p class="section-sub">Pode voltar ao catálogo e escolher outro evento disponível.</p>
+        <a href="/" class="btn-purchase" style="display:inline-flex;width:auto;margin-top:22px;text-decoration:none;padding:12px 22px">Ver outros eventos</a>
       </div>
     </div>
   </main>
 
-  <footer class="footer"><p>© 2025 BilheteAO</p></footer>
+  <footer class="footer">
+    <p>© 2026 BilheteAO.</p>
+  </footer>
 
   <script src="/js/auth.js"></script>
+  <script src="/js/public-ui.js"></script>
   <script>
+    const UI = window.BilheteUI;
     const eventId = window.location.pathname.split('/').pop();
     let currentEvent = null;
+    let maxQty = 1;
 
     async function loadEvent() {
       try {
-        const res  = await fetch(`/api/events/${eventId}`);
+        const res = await fetch(`/api/events/${eventId}`);
         const json = await res.json();
-        if (!json.success) throw new Error();
+        if (!json.success) throw new Error('not-found');
         currentEvent = json.data;
         document.getElementById('loadingState').style.display = 'none';
-        if (currentEvent.soldOut) { document.getElementById('soldOutState').style.display = 'block'; return; }
+
+        if (currentEvent.soldOut) {
+          document.getElementById('soldOutState').style.display = 'block';
+          return;
+        }
+
         populateDetail(currentEvent);
-        document.getElementById('eventDetail').style.display = 'block';
+        document.getElementById('eventDetail').style.display = 'grid';
       } catch {
-        document.getElementById('loadingState').innerHTML = '<p style="color:#e94560">Evento não encontrado.</p>';
+        document.getElementById('loadingState').innerHTML = '<p style="color:var(--error)">Evento não encontrado.</p>';
       }
     }
 
     function populateDetail(event) {
-      document.title = `${event.name} — BilheteAO`;
-      const dateStr = new Date(event.date).toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+      document.title = `${event.name} | BilheteAO`;
+      maxQty = Math.max(1, Math.min(5, Number(event.availableSeats || 1)));
 
-      // Imagem de capa como hero
       const heroDiv = document.getElementById('eventHeroImage');
       if (event.coverUrl) {
-        heroDiv.style.backgroundImage = `url('${event.coverUrl}')`;
-        heroDiv.style.display = 'block';
+        heroDiv.style.backgroundImage = `url('${encodeURI(event.coverUrl)}')`;
       }
 
-      // Cartaz
       if (event.posterUrl) {
         document.getElementById('posterSection').style.display = 'block';
         document.getElementById('eventPoster').src = event.posterUrl;
       }
 
-      document.getElementById('eventEmoji').textContent    = event.emoji;
-      document.getElementById('eventCategory').textContent = event.category;
-      document.getElementById('eventName').textContent     = event.name;
-      document.getElementById('eventDesc').textContent     = event.description;
-      document.getElementById('eventDate').textContent     = dateStr;
-      document.getElementById('eventTime').textContent     = event.time + 'h';
-      document.getElementById('eventLocation').textContent = event.location;
-      document.getElementById('eventSeats').textContent    = event.availableSeats + ' lugares';
+      document.getElementById('eventEmoji').textContent = event.emoji || 'B';
+      document.getElementById('eventCategory').textContent = event.category || 'Evento';
+      document.getElementById('eventName').textContent = event.name;
+      document.getElementById('eventDesc').textContent = event.description || 'Evento sem descrição disponível.';
+      document.getElementById('eventDate').textContent = UI.formatDate(event.date, 'long');
+      document.getElementById('eventTime').textContent = `${event.time || '--:--'}h`;
+      document.getElementById('eventLocation').textContent = event.location || 'Local por definir';
+      document.getElementById('eventSeats').textContent = `${event.availableSeats} disponíveis`;
 
-      // Verificar autenticação
-      const token = localStorage.getItem('authToken');
-      const name  = localStorage.getItem('userName');
-      const email = localStorage.getItem('userEmail');
-
-      if (token && name) {
+      const user = UI.currentUser();
+      if (user.token && user.name) {
         document.getElementById('loggedInForm').style.display = 'block';
         document.getElementById('buyerInfoBox').innerHTML = `
           <div class="buyer-info">
-            <span class="buyer-avatar">${name.charAt(0).toUpperCase()}</span>
+            <span class="buyer-avatar">${UI.escapeHTML(user.name.charAt(0).toUpperCase())}</span>
             <div>
-              <strong>${name}</strong>
-              <p>${email}</p>
+              <strong>${UI.escapeHTML(user.name)}</strong>
+              <p>${UI.escapeHTML(user.email || '')}</p>
             </div>
           </div>`;
         updatePrice();
-        document.getElementById('quantity').addEventListener('change', updatePrice);
       } else {
         document.getElementById('notLoggedIn').style.display = 'block';
-        // Passar URL actual para redirect após login
         document.getElementById('loginBtn').href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
       }
     }
 
+    function changeQty(delta) {
+      const input = document.getElementById('quantity');
+      const next = Math.min(maxQty, Math.max(1, Number(input.value || 1) + delta));
+      input.value = next;
+      updatePrice();
+    }
+
     function updatePrice() {
       if (!currentEvent) return;
-      const qty   = parseInt(document.getElementById('quantity').value) || 1;
-      const total = currentEvent.price * qty;
-      document.getElementById('priceTotal').textContent = total.toLocaleString('pt-AO') + ' AOA';
+      const qty = Number(document.getElementById('quantity').value || 1);
+      document.getElementById('priceTotal').textContent = UI.formatMoney(currentEvent.price * qty);
     }
 
     async function submitPurchase() {
       const quantity = document.getElementById('quantity').value;
-      const token    = localStorage.getItem('authToken');
-      const errBox   = document.getElementById('formError');
-      errBox.style.display = 'none';
-
+      const token = localStorage.getItem('authToken');
+      const errBox = document.getElementById('formError');
       const btn = document.getElementById('purchaseBtn');
+      errBox.style.display = 'none';
       btn.disabled = true;
-      document.getElementById('btnText').style.display    = 'none';
+      document.getElementById('btnText').style.display = 'none';
       document.getElementById('btnSpinner').style.display = 'block';
 
       try {
-        const res  = await fetch('/api/purchase', {
+        const res = await fetch('/api/purchase', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
           body: JSON.stringify({ eventId, quantity })
@@ -202,7 +223,6 @@
         const json = await res.json();
 
         if (json.success) {
-          // Download automático
           const link = document.createElement('a');
           link.href = json.data.pdfUrl;
           link.download = `bilhete-${json.data.ticketCode}.pdf`;
@@ -211,25 +231,31 @@
           document.body.removeChild(link);
 
           const params = new URLSearchParams({
-            ticket: json.data.ticketCode, event: json.data.eventName,
-            name: json.data.customerName, price: json.data.totalPrice, pdf: json.data.pdfUrl
+            ticket: json.data.ticketCode,
+            event: json.data.eventName,
+            name: json.data.customerName,
+            price: json.data.totalPrice,
+            pdf: json.data.pdfUrl
           });
           window.location.href = `/confirmation?${params}`;
-        } else {
-          if (json.needLogin) { window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`; return; }
-          errBox.textContent = json.message;
-          errBox.style.display = 'block';
-          btn.disabled = false;
-          document.getElementById('btnText').style.display    = 'block';
-          document.getElementById('btnSpinner').style.display = 'none';
+          return;
         }
+
+        if (json.needLogin) {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
+
+        errBox.textContent = json.message || 'Não foi possível concluir a compra.';
+        errBox.style.display = 'block';
       } catch {
         errBox.textContent = 'Erro de comunicação. Tente novamente.';
         errBox.style.display = 'block';
-        btn.disabled = false;
-        document.getElementById('btnText').style.display    = 'block';
-        document.getElementById('btnSpinner').style.display = 'none';
       }
+
+      btn.disabled = false;
+      document.getElementById('btnText').style.display = 'block';
+      document.getElementById('btnSpinner').style.display = 'none';
     }
 
     loadEvent();

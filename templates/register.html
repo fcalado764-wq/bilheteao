@@ -3,40 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Criar Conta — BilheteAO</title>
+  <title>Criar Conta | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="auth-body">
   <div class="auth-container">
-    <div class="auth-box">
-      <a href="/" class="auth-logo">🎟️ BilheteAO</a>
-      <h1 class="auth-title">Criar Conta</h1>
-      <p class="auth-sub">Junte-se ao BilheteAO</p>
+    <div class="auth-shell">
+      <section class="auth-box">
+        <a href="/" class="auth-logo">BilheteAO</a>
+        <h1 class="auth-title">Criar conta</h1>
+        <p class="auth-sub">Compre bilhetes, acompanhe submissões e valide entradas com a mesma conta.</p>
 
-      <div id="authError" class="form-error" style="display:none"></div>
+        <div id="authError" class="form-error" style="display:none"></div>
 
-      <div class="form-group">
-        <label class="form-label">Nome Completo</label>
-        <input type="text" id="name" class="form-input" placeholder="João Manuel Silva" autocomplete="name">
-      </div>
-      <div class="form-group">
-        <label class="form-label">E-mail</label>
-        <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Senha (mín. 6 caracteres)</label>
-        <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="new-password">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Confirmar Senha</label>
-        <input type="password" id="password2" class="form-input" placeholder="••••••••">
-      </div>
+        <div class="form-group">
+          <label class="form-label">Nome completo</label>
+          <input type="text" id="name" class="form-input" placeholder="João Manuel Silva" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail</label>
+          <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Senha (mín. 6 caracteres)</label>
+          <input type="password" id="password" class="form-input" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirmar senha</label>
+          <input type="password" id="password2" class="form-input" placeholder="••••••••">
+        </div>
 
-      <button class="btn-purchase" onclick="doRegister()">Criar Conta</button>
+        <button class="btn-purchase" type="button" onclick="doRegister()">Criar conta</button>
 
-      <p class="auth-switch">Já tem conta? <a href="/login">Iniciar sessão</a></p>
-      <a href="/" class="auth-back">← Voltar aos eventos</a>
+        <p class="auth-switch">Já tem conta? <a href="/login">Iniciar sessão</a></p>
+        <a href="/" class="auth-back">← Voltar aos eventos</a>
+      </section>
+
+      <aside class="auth-visual">
+        <span class="section-kicker">Bilhetes sem papel</span>
+        <h2>Uma conta, todos os eventos, todos os PDFs.</h2>
+        <p>Guarde os seus dados uma vez e compre com mais rapidez nas próximas reservas.</p>
+      </aside>
     </div>
   </div>
 
@@ -44,24 +52,27 @@
     if (localStorage.getItem('authToken')) window.location.href = '/';
 
     async function doRegister() {
-      const name      = document.getElementById('name').value.trim();
-      const email     = document.getElementById('email').value.trim();
-      const password  = document.getElementById('password').value;
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
       const password2 = document.getElementById('password2').value;
-      const errBox    = document.getElementById('authError');
+      const errBox = document.getElementById('authError');
       errBox.style.display = 'none';
 
       if (!name || !email || !password) {
         errBox.textContent = 'Preencha todos os campos.';
-        errBox.style.display = 'block'; return;
+        errBox.style.display = 'block';
+        return;
       }
+
       if (password !== password2) {
         errBox.textContent = 'As senhas não coincidem.';
-        errBox.style.display = 'block'; return;
+        errBox.style.display = 'block';
+        return;
       }
 
       try {
-        const res  = await fetch('/api/auth/register', {
+        const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, password })
@@ -70,7 +81,7 @@
 
         if (json.success) {
           localStorage.setItem('authToken', json.token);
-          localStorage.setItem('userName',  json.user.name);
+          localStorage.setItem('userName', json.user.name);
           localStorage.setItem('userEmail', json.user.email);
           window.location.href = '/';
         } else {
@@ -83,7 +94,9 @@
       }
     }
 
-    document.addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') doRegister();
+    });
   </script>
 </body>
 </html>

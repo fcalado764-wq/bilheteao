@@ -3,232 +3,357 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Propor Evento — BilheteAO</title>
+  <title>Propor Evento | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <nav class="navbar">
     <div class="nav-brand">
-      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:8px;color:inherit">
-        <span class="brand-icon">🎟️</span><span class="brand-name">BilheteAO</span>
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+        <span class="brand-icon">B</span>
+        <span class="brand-name">BilheteAO</span>
       </a>
     </div>
     <div class="nav-links">
-      <a href="/" class="nav-link">← Eventos</a>
+      <a href="/" class="nav-link">Eventos</a>
+      <a href="/validate" class="nav-link">Validar</a>
+      <a href="/submit-event" class="nav-link active">Propor evento</a>
       <div id="navAuth"></div>
     </div>
   </nav>
 
-  <main class="main-content" style="padding-top:40px">
-    <div class="container" style="max-width:700px">
-
-      <!-- Não autenticado -->
-      <div id="notLoggedIn" style="display:none;text-align:center;padding:60px 20px">
-        <div style="font-size:60px;margin-bottom:16px">🔐</div>
-        <h2 style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;margin-bottom:12px">Acesso Restrito</h2>
-        <p style="color:var(--text-muted);margin-bottom:28px">Precisa de iniciar sessão para propor um evento.</p>
-        <a href="/login?redirect=/submit-event" class="btn-purchase" style="text-decoration:none;display:inline-block;width:auto;padding:12px 32px">Iniciar Sessão</a>
+  <main class="main-content">
+    <div class="container">
+      <div id="notLoggedIn" class="tool-panel" style="display:none;text-align:center;padding:56px 20px">
+        <span class="section-kicker">Acesso restrito</span>
+        <h1 class="section-title">Inicie sessão para propor um evento.</h1>
+        <p class="section-sub">Assim conseguimos ligar a submissão à sua conta e acompanhar o estado da aprovação.</p>
+        <a href="/login?redirect=/submit-event" class="btn-purchase" style="display:inline-flex;width:auto;margin-top:22px;text-decoration:none;padding:12px 24px">Iniciar sessão</a>
       </div>
 
-      <!-- Autenticado -->
       <div id="formSection" style="display:none">
-        <div style="margin-bottom:32px">
-          <h1 style="font-family:'Bebas Neue',sans-serif;font-size:3rem;letter-spacing:2px">Propor <span style="color:var(--accent)">Evento</span></h1>
-          <p style="color:var(--text-muted)">O seu evento será analisado e publicado após aprovação do administrador.</p>
-        </div>
+        <header class="page-header">
+          <span class="section-kicker">Nova submissão</span>
+          <h1 class="page-title">Publique o seu evento no BilheteAO.</h1>
+          <p class="page-sub">Preencha os detalhes, veja a prévia em tempo real e envie para aprovação do administrador.</p>
+        </header>
 
-        <div class="purchase-form-box">
-          <div id="formError"   class="form-error"   style="display:none"></div>
-          <div id="formSuccess" class="form-success"  style="display:none"></div>
+        <div class="page-shell">
+          <section class="form-panel">
+            <div id="formError" class="form-error" style="display:none"></div>
+            <div id="formSuccess" class="form-success" style="display:none"></div>
 
-          <div class="form-grid-2">
-            <div class="form-group" style="grid-column:1/-1">
-              <label class="form-label">Nome do Evento *</label>
-              <input type="text" id="evName" class="form-input" placeholder="Ex: Concerto de Verão">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Categoria</label>
-              <select id="evCategory" class="form-input">
-                <option>Música</option><option>Tecnologia</option><option>Teatro</option>
-                <option>Desporto</option><option>Arte</option><option>Geral</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Emoji / Ícone</label>
-              <input type="text" id="evEmoji" class="form-input" placeholder="🎵" maxlength="4">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Data *</label>
-              <input type="date" id="evDate" class="form-input">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Hora *</label>
-              <input type="time" id="evTime" class="form-input">
-            </div>
-            <div class="form-group" style="grid-column:1/-1">
-              <label class="form-label">Local *</label>
-              <input type="text" id="evLocation" class="form-input" placeholder="Ex: Jardim da Samba, Luanda">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Preço por Bilhete (AOA) *</label>
-              <input type="number" id="evPrice" class="form-input" placeholder="2500" min="0">
-            </div>
-            <div class="form-group">
-              <label class="form-label">Total de Lugares *</label>
-              <input type="number" id="evSeats" class="form-input" placeholder="200" min="1">
-            </div>
-            <div class="form-group" style="grid-column:1/-1">
-              <label class="form-label">Descrição</label>
-              <textarea id="evDesc" class="form-input" rows="3" placeholder="Descreva o evento..."></textarea>
-            </div>
-          </div>
-
-          <!-- Upload de imagens -->
-          <div class="upload-section">
-            <div class="upload-field">
-              <label class="form-label">🖼️ Foto de Capa</label>
-              <p class="upload-hint">Imagem que aparece no card do evento (recomendado: 800×400px)</p>
-              <div class="upload-area" id="coverArea" onclick="document.getElementById('coverInput').click()">
-                <input type="file" id="coverInput" accept="image/*" style="display:none" onchange="previewImage(this,'coverPreview','coverArea')">
-                <div class="upload-placeholder" id="coverPlaceholder">
-                  <span style="font-size:2rem">📷</span>
-                  <p>Clique para seleccionar imagem</p>
-                  <small>JPG, PNG, WEBP — máx. 5MB</small>
-                </div>
-                <img id="coverPreview" src="" alt="" style="display:none;width:100%;border-radius:8px;max-height:200px;object-fit:cover">
+            <div class="form-grid-2">
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Nome do evento *</label>
+                <input type="text" id="evName" class="form-input" placeholder="Ex: Concerto de verão">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Categoria</label>
+                <select id="evCategory" class="form-input">
+                  <option>Música</option>
+                  <option>Tecnologia</option>
+                  <option>Teatro</option>
+                  <option>Desporto</option>
+                  <option>Arte</option>
+                  <option>Geral</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ícone curto</label>
+                <input type="text" id="evEmoji" class="form-input" placeholder="B" maxlength="4">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Data *</label>
+                <input type="date" id="evDate" class="form-input">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Hora *</label>
+                <input type="time" id="evTime" class="form-input">
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Local *</label>
+                <input type="text" id="evLocation" class="form-input" placeholder="Ex: Jardim da Samba, Luanda">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Preço por bilhete (AOA) *</label>
+                <input type="number" id="evPrice" class="form-input" placeholder="2500" min="0">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Total de lugares *</label>
+                <input type="number" id="evSeats" class="form-input" placeholder="200" min="1">
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Descrição</label>
+                <textarea id="evDesc" class="form-input" rows="4" placeholder="Conte o que torna este evento especial."></textarea>
               </div>
             </div>
 
-            <div class="upload-field" style="margin-top:20px">
-              <label class="form-label">🎨 Cartaz do Evento</label>
-              <p class="upload-hint">Cartaz oficial do evento (recomendado: 400×600px)</p>
-              <div class="upload-area" id="posterArea" onclick="document.getElementById('posterInput').click()">
-                <input type="file" id="posterInput" accept="image/*" style="display:none" onchange="previewImage(this,'posterPreview','posterArea')">
-                <div class="upload-placeholder" id="posterPlaceholder">
-                  <span style="font-size:2rem">🎨</span>
-                  <p>Clique para seleccionar imagem</p>
-                  <small>JPG, PNG, WEBP — máx. 5MB</small>
+            <div class="upload-section">
+              <div class="upload-field">
+                <label class="form-label">Foto de capa</label>
+                <p class="upload-hint">Imagem horizontal para o card do evento. JPG, PNG ou WEBP até 5MB.</p>
+                <div class="upload-area" id="coverArea">
+                  <input type="file" id="coverInput" accept="image/*" style="display:none">
+                  <div class="upload-placeholder" id="coverPlaceholder">
+                    <strong>Selecionar imagem</strong>
+                    <p>Clique ou arraste a capa para aqui</p>
+                  </div>
+                  <img id="coverPreview" src="" alt="" style="display:none;width:100%;border-radius:8px;max-height:210px;object-fit:cover">
                 </div>
-                <img id="posterPreview" src="" alt="" style="display:none;width:100%;border-radius:8px;max-height:300px;object-fit:contain">
+              </div>
+
+              <div class="upload-field" style="margin-top:18px">
+                <label class="form-label">Cartaz do evento</label>
+                <p class="upload-hint">Opcional. Ideal para cartaz vertical oficial.</p>
+                <div class="upload-area" id="posterArea">
+                  <input type="file" id="posterInput" accept="image/*" style="display:none">
+                  <div class="upload-placeholder" id="posterPlaceholder">
+                    <strong>Selecionar cartaz</strong>
+                    <p>Clique ou arraste o cartaz para aqui</p>
+                  </div>
+                  <img id="posterPreview" src="" alt="" style="display:none;width:100%;border-radius:8px;max-height:300px;object-fit:contain">
+                </div>
               </div>
             </div>
-          </div>
 
-          <button class="btn-purchase" style="margin-top:28px" onclick="submitEvent()">
-            <span id="submitText">📤 Submeter Evento para Aprovação</span>
-            <div class="btn-spinner" id="submitSpinner" style="display:none"></div>
-          </button>
+            <button class="btn-purchase" id="submitBtn" type="button" style="margin-top:26px" onclick="submitEvent()">
+              <span id="submitText">Submeter para aprovação</span>
+              <div class="btn-spinner" id="submitSpinner" style="display:none"></div>
+            </button>
+          </section>
+
+          <aside class="preview-panel">
+            <span class="section-kicker">Prévia</span>
+            <div class="preview-card">
+              <div class="preview-cover" id="livePreviewCover">
+                <span id="previewEmoji">B</span>
+              </div>
+              <div class="preview-body">
+                <span class="card-category" id="previewCategory">Música</span>
+                <h2 class="card-title" id="previewName">Nome do evento</h2>
+                <p class="card-desc" id="previewDesc">A descrição aparece aqui enquanto escreve.</p>
+                <div class="card-meta">
+                  <span class="meta-item" id="previewDate">Data</span>
+                  <span class="meta-item" id="previewLocation">Local</span>
+                </div>
+                <div class="card-footer">
+                  <span class="card-price" id="previewPrice">0 AOA</span>
+                  <button class="btn-buy" type="button">Comprar</button>
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
 
-        <!-- Meus eventos submetidos -->
-        <div style="margin-top:48px">
-          <h2 style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;margin-bottom:20px">Os Meus Eventos</h2>
+        <section style="margin-top:44px">
+          <div class="section-head">
+            <div>
+              <span class="section-kicker">Submissões</span>
+              <h2 class="section-title">Os meus eventos</h2>
+            </div>
+          </div>
           <div id="myEvents"><p style="color:var(--text-muted)">A carregar...</p></div>
-        </div>
+        </section>
       </div>
     </div>
   </main>
 
-  <footer class="footer"><p>© 2025 BilheteAO</p></footer>
+  <footer class="footer">
+    <p>© 2026 BilheteAO.</p>
+  </footer>
 
   <script src="/js/auth.js"></script>
+  <script src="/js/public-ui.js"></script>
   <script>
+    const UI = window.BilheteUI;
     const token = localStorage.getItem('authToken');
 
-    function previewImage(input, previewId, areaId) {
+    function syncPreview() {
+      const name = document.getElementById('evName').value.trim() || 'Nome do evento';
+      const category = document.getElementById('evCategory').value || 'Música';
+      const emoji = document.getElementById('evEmoji').value.trim() || 'B';
+      const desc = document.getElementById('evDesc').value.trim() || 'A descrição aparece aqui enquanto escreve.';
+      const location = document.getElementById('evLocation').value.trim() || 'Local';
+      const date = document.getElementById('evDate').value;
+      const price = document.getElementById('evPrice').value;
+
+      document.getElementById('previewName').textContent = name;
+      document.getElementById('previewCategory').textContent = category;
+      document.getElementById('previewEmoji').textContent = emoji;
+      document.getElementById('previewDesc').textContent = desc;
+      document.getElementById('previewLocation').textContent = location;
+      document.getElementById('previewDate').textContent = date ? UI.formatDate(date) : 'Data';
+      document.getElementById('previewPrice').textContent = UI.formatMoney(price);
+    }
+
+    function showPreview(input, previewId, areaId, isCover) {
       const file = input.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = e => {
+      reader.onload = (event) => {
         const preview = document.getElementById(previewId);
         const placeholder = document.getElementById(areaId).querySelector('.upload-placeholder');
-        preview.src = e.target.result;
+        preview.src = event.target.result;
         preview.style.display = 'block';
         if (placeholder) placeholder.style.display = 'none';
+        if (isCover) {
+          document.getElementById('livePreviewCover').style.backgroundImage = `url('${event.target.result}')`;
+          document.getElementById('previewEmoji').style.display = 'none';
+        }
       };
       reader.readAsDataURL(file);
+    }
+
+    function setupUpload(areaId, inputId, previewId, isCover) {
+      const area = document.getElementById(areaId);
+      const input = document.getElementById(inputId);
+      area.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => showPreview(input, previewId, areaId, isCover));
+
+      ['dragenter', 'dragover'].forEach((name) => {
+        area.addEventListener(name, (event) => {
+          event.preventDefault();
+          area.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach((name) => {
+        area.addEventListener(name, (event) => {
+          event.preventDefault();
+          area.classList.remove('drag-over');
+        });
+      });
+
+      area.addEventListener('drop', (event) => {
+        const file = event.dataTransfer.files[0];
+        if (!file) return;
+        const data = new DataTransfer();
+        data.items.add(file);
+        input.files = data.files;
+        showPreview(input, previewId, areaId, isCover);
+      });
     }
 
     async function loadMyEvents() {
       if (!token) return;
       try {
-        const res  = await fetch('/api/events/my/submissions', { headers: { 'x-auth-token': token } });
+        const res = await fetch('/api/events/my/submissions', { headers: { 'x-auth-token': token } });
         const json = await res.json();
-        const div  = document.getElementById('myEvents');
-        if (!json.data.length) { div.innerHTML = '<p style="color:var(--text-muted)">Ainda não submeteu nenhum evento.</p>'; return; }
-        div.innerHTML = json.data.map(e => {
-          const statusMap = { pending: { label: '⏳ Pendente', cls: 'status-pending' }, approved: { label: '✅ Aprovado', cls: 'status-valid' }, rejected: { label: '❌ Rejeitado', cls: 'status-used' } };
-          const s = statusMap[e.status] || statusMap.pending;
-          return `<div class="my-event-row">
-            <span class="my-event-emoji">${e.emoji}</span>
-            <div class="my-event-info"><strong>${e.name}</strong><small>${new Date(e.date).toLocaleDateString('pt-PT')} • ${e.location}</small></div>
-            <span class="status-badge ${s.cls}">${s.label}</span>
-          </div>`;
+        const div = document.getElementById('myEvents');
+
+        if (!json.data.length) {
+          div.innerHTML = '<p style="color:var(--text-muted)">Ainda não submeteu nenhum evento.</p>';
+          return;
+        }
+
+        const statusMap = {
+          pending: { label: 'Pendente', cls: 'status-pending' },
+          approved: { label: 'Aprovado', cls: 'status-valid' },
+          rejected: { label: 'Rejeitado', cls: 'status-used' }
+        };
+
+        div.innerHTML = json.data.map((event) => {
+          const status = statusMap[event.status] || statusMap.pending;
+          return `
+            <div class="my-event-row">
+              <span class="my-event-emoji">${UI.escapeHTML(event.emoji || 'B')}</span>
+              <div class="my-event-info">
+                <strong>${UI.escapeHTML(event.name)}</strong>
+                <small>${UI.formatDate(event.date)} · ${UI.escapeHTML(event.location || 'Local')}</small>
+              </div>
+              <span class="status-badge ${status.cls}">${status.label}</span>
+            </div>`;
         }).join('');
-      } catch {}
+      } catch {
+        document.getElementById('myEvents').innerHTML = '<p style="color:var(--error)">Erro ao carregar os seus eventos.</p>';
+      }
     }
 
     async function submitEvent() {
-      const errBox  = document.getElementById('formError');
-      const sucBox  = document.getElementById('formSuccess');
+      const errBox = document.getElementById('formError');
+      const sucBox = document.getElementById('formSuccess');
+      const btn = document.getElementById('submitBtn');
       errBox.style.display = 'none';
       sucBox.style.display = 'none';
 
-      const name     = document.getElementById('evName').value.trim();
-      const date     = document.getElementById('evDate').value;
-      const time     = document.getElementById('evTime').value;
+      const name = document.getElementById('evName').value.trim();
+      const date = document.getElementById('evDate').value;
+      const time = document.getElementById('evTime').value;
       const location = document.getElementById('evLocation').value.trim();
-      const price    = document.getElementById('evPrice').value;
-      const seats    = document.getElementById('evSeats').value;
+      const price = document.getElementById('evPrice').value;
+      const seats = document.getElementById('evSeats').value;
 
       if (!name || !date || !time || !location || !price || !seats) {
         errBox.textContent = 'Preencha todos os campos obrigatórios.';
-        errBox.style.display = 'block'; return;
+        errBox.style.display = 'block';
+        return;
       }
 
-      const btn = document.querySelector('.btn-purchase');
       btn.disabled = true;
-      document.getElementById('submitText').style.display    = 'none';
+      document.getElementById('submitText').style.display = 'none';
       document.getElementById('submitSpinner').style.display = 'block';
 
       const formData = new FormData();
-      formData.append('name',        name);
-      formData.append('date',        date);
-      formData.append('time',        time);
-      formData.append('location',    location);
-      formData.append('price',       price);
-      formData.append('totalSeats',  seats);
-      formData.append('category',    document.getElementById('evCategory').value);
-      formData.append('emoji',       document.getElementById('evEmoji').value || '🎟️');
+      formData.append('name', name);
+      formData.append('date', date);
+      formData.append('time', time);
+      formData.append('location', location);
+      formData.append('price', price);
+      formData.append('totalSeats', seats);
+      formData.append('category', document.getElementById('evCategory').value);
+      formData.append('emoji', document.getElementById('evEmoji').value || 'B');
       formData.append('description', document.getElementById('evDesc').value);
-      const coverFile  = document.getElementById('coverInput').files[0];
+
+      const coverFile = document.getElementById('coverInput').files[0];
       const posterFile = document.getElementById('posterInput').files[0];
-      if (coverFile)  formData.append('cover',  coverFile);
+      if (coverFile) formData.append('cover', coverFile);
       if (posterFile) formData.append('poster', posterFile);
 
       try {
-        const res  = await fetch('/api/events/submit', { method: 'POST', headers: { 'x-auth-token': token }, body: formData });
+        const res = await fetch('/api/events/submit', {
+          method: 'POST',
+          headers: { 'x-auth-token': token },
+          body: formData
+        });
         const json = await res.json();
+
         if (json.success) {
           sucBox.textContent = json.message;
           sucBox.style.display = 'block';
-          // Limpar formulário
-          ['evName','evDate','evTime','evLocation','evPrice','evSeats','evDesc','evEmoji'].forEach(id => document.getElementById(id).value = '');
-          ['coverPreview','posterPreview'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+          ['evName', 'evDate', 'evTime', 'evLocation', 'evPrice', 'evSeats', 'evDesc', 'evEmoji'].forEach((id) => {
+            document.getElementById(id).value = '';
+          });
+          ['coverInput', 'posterInput'].forEach((id) => { document.getElementById(id).value = ''; });
+          ['coverPreview', 'posterPreview'].forEach((id) => { document.getElementById(id).style.display = 'none'; });
+          ['coverPlaceholder', 'posterPlaceholder'].forEach((id) => { document.getElementById(id).style.display = 'block'; });
+          document.getElementById('livePreviewCover').style.backgroundImage = '';
+          document.getElementById('previewEmoji').style.display = 'inline';
+          syncPreview();
           loadMyEvents();
         } else {
-          errBox.textContent = json.message;
+          errBox.textContent = json.message || 'Não foi possível submeter o evento.';
           errBox.style.display = 'block';
         }
       } catch {
         errBox.textContent = 'Erro de comunicação.';
         errBox.style.display = 'block';
       }
+
       btn.disabled = false;
-      document.getElementById('submitText').style.display    = 'block';
+      document.getElementById('submitText').style.display = 'block';
       document.getElementById('submitSpinner').style.display = 'none';
     }
+
+    document.querySelectorAll('#formSection input, #formSection textarea, #formSection select').forEach((field) => {
+      field.addEventListener('input', syncPreview);
+      field.addEventListener('change', syncPreview);
+    });
+
+    setupUpload('coverArea', 'coverInput', 'coverPreview', true);
+    setupUpload('posterArea', 'posterInput', 'posterPreview', false);
+    syncPreview();
 
     if (token) {
       document.getElementById('formSection').style.display = 'block';
