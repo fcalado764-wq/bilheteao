@@ -64,22 +64,38 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ------------------------------------------------------------
-// MULTER
+// MULTER — usa memória (compatível com Vercel)
 // ------------------------------------------------------------
 const uploadEvent = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const folder = file.fieldname === 'cover' ? 'covers' : 'posters';
-      cb(null, path.join(__dirname, 'uploads', folder));
-    },
-    filename: (req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`)
-  }),
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
     else cb(new Error('Apenas imagens são permitidas.'));
   }
 });
+
+// Upload de imagem para Supabase Storage
+async function uploadImageToSupabase(file, folder) {
+  if (!file) return null;
+  try {
+    const filename = `${uuidv4()}${path.extname(file.originalname)}`;
+    const { error } = await supabaseAdmin.storage
+      .from('event-images')
+      .upload(`${folder}/${filename}`, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+    if (error) { console.error('Erro upload:', error.message); return null; }
+    const { data: urlData } = supabaseAdmin.storage
+      .from('event-images')
+      .getPublicUrl(`${folder}/${filename}`);
+    return urlData.publicUrl;
+  } catch(e) {
+    console.error('Erro upload imagem:', e.message);
+    return null;
+  }
+}
 
 // ------------------------------------------------------------
 // HELPERS AUTH
@@ -113,8 +129,8 @@ function withExtras(e) {
     totalSeats: e.total_seats,
     soldSeats: e.sold_seats,
     submittedByName: e.submitted_by_name,
-    coverUrl:  e.cover  ? `/uploads/covers/${e.cover}`  : null,
-    posterUrl: e.poster ? `/uploads/posters/${e.poster}` : null
+    coverUrl:  e.cover  ? (e.cover.startsWith('http') ? e.cover : `/uploads/covers/${e.cover}`)  : null,
+    posterUrl: e.poster ? (e.poster.startsWith('http') ? e.poster : `/uploads/posters/${e.poster}`) : null
   };
 }
 
