@@ -375,22 +375,6 @@ body {
 
 textarea.form-input { resize: vertical; min-height: 80px; }
 
-.ticket-types-editor {
-  display: grid;
-  gap: 10px;
-}
-
-.ticket-type-row {
-  display: grid;
-  grid-template-columns: minmax(130px, 1.4fr) minmax(90px, 0.8fr) minmax(110px, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.ticket-type-row .form-input {
-  min-width: 0;
-}
-
 .price-summary {
   display: flex; justify-content: space-between; align-items: center;
   background: rgba(233,69,96,0.08);
@@ -865,7 +849,6 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   .container { padding: 0 20px; }
   .detail-info-grid { grid-template-columns: 1fr; }
   .form-grid-2 { grid-template-columns: 1fr; }
-  .ticket-type-row { grid-template-columns: 1fr; }
 
   .admin-layout { flex-direction: column; }
   .admin-sidebar {
