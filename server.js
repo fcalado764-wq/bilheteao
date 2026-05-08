@@ -568,7 +568,7 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
 
       const qrCodeDataURL = await QRCode.toDataURL(validateUrl, {
         errorCorrectionLevel: 'H', margin: 1,
-        color: { dark: '#e94560', light: '#080810' }, width: 200
+        color: { dark: '#ffffff', light: '#080810' }, width: 200
       });
 
       const pdfBuffer = await generateTicketPDF({
