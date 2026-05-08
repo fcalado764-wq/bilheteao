@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minha Conta | BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-brand">
+      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
+        <span class="brand-icon">B</span>
+        <span class="brand-name">BilheteAO</span>
+      </a>
+    </div>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Eventos</a>
+      <a href="/submit-event" class="nav-link">Propor evento</a>
+      <div id="navAuth"></div>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="container">
+      <header class="page-header">
+        <a href="/" class="back-link">← Voltar aos eventos</a>
+        <span class="section-kicker">Área do utilizador</span>
+        <h1 class="page-title">Minha conta</h1>
+        <p class="page-sub" id="userGreeting">Consulte bilhetes, finalize o carrinho e altere a sua senha.</p>
+      </header>
+
+      <div id="notLoggedIn" class="tool-panel" style="display:none;text-align:center">
+        <h2 class="section-title">Inicie sessão para ver a sua conta.</h2>
+        <a href="/login?redirect=/account" class="btn-purchase" style="display:inline-flex;width:auto;margin-top:18px;text-decoration:none;padding:12px 24px">Iniciar sessão</a>
+      </div>
+
+      <section id="accountShell" style="display:none">
+        <div class="account-tabs" role="tablist">
+          <button class="tag active" type="button" data-tab="tickets">Meus bilhetes</button>
+          <button class="tag" type="button" data-tab="cart">Carrinho <span id="cartBadge"></span></button>
+          <button class="tag" type="button" data-tab="password">Senha</button>
+        </div>
+
+        <div id="tab-tickets" class="account-tab">
+          <div class="section-head">
+            <div>
+              <span class="section-kicker">Compras</span>
+              <h2 class="section-title">Bilhetes comprados</h2>
+            </div>
+          </div>
+          <div id="ticketsList" class="ticket-list">
+            <div class="loading-state"><div class="spinner"></div><p>A carregar bilhetes...</p></div>
+          </div>
+        </div>
+
+        <div id="tab-cart" class="account-tab" style="display:none">
+          <div class="section-head">
+            <div>
+              <span class="section-kicker">Reserva</span>
+              <h2 class="section-title">Carrinho</h2>
+              <p class="section-sub">Adicione bilhetes nos eventos e finalize quando estiver pronto.</p>
+            </div>
+            <button class="btn-purchase" type="button" style="width:auto;padding:12px 18px" onclick="checkoutCart()">Comprar carrinho</button>
+          </div>
+          <div id="cartMessage" class="form-success" style="display:none"></div>
+          <div id="cartError" class="form-error" style="display:none"></div>
+          <div id="cartList"></div>
+        </div>
+
+        <div id="tab-password" class="account-tab" style="display:none">
+          <div class="page-shell">
+            <section class="form-panel">
+              <span class="section-kicker">Segurança</span>
+              <h2 class="section-title" style="font-size:2rem">Alterar senha</h2>
+              <p class="section-sub" style="margin-bottom:22px">Depois de mudar a senha, as outras sessões serão terminadas.</p>
+
+              <div id="passwordError" class="form-error" style="display:none"></div>
+              <div id="passwordSuccess" class="form-success" style="display:none"></div>
+
+              <div class="form-group">
+                <label class="form-label">Senha actual</label>
+                <input type="password" id="currentPassword" class="form-input" autocomplete="current-password">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Nova senha</label>
+                <input type="password" id="newPassword" class="form-input" autocomplete="new-password">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Confirmar nova senha</label>
+                <input type="password" id="confirmPassword" class="form-input" autocomplete="new-password">
+              </div>
+              <button class="btn-purchase" type="button" onclick="changePassword()">Guardar senha</button>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2026 BilheteAO.</p>
+  </footer>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/public-ui.js"></script>
+  <script>
+    const UI = window.BilheteUI;
+    const user = UI.currentUser();
+    const CART_KEY = 'bilheteaoCart';
+
+    function readCart() {
+      try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]'); }
+      catch { return []; }
+    }
+
+    function writeCart(items) {
+      localStorage.setItem(CART_KEY, JSON.stringify(items));
+      updateCartBadge();
+    }
+
+    function updateCartBadge() {
+      const count = readCart().reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      document.getElementById('cartBadge').textContent = count ? `(${count})` : '';
+    }
+
+    function showTab(tabName) {
+      document.querySelectorAll('.account-tab').forEach((tab) => tab.style.display = 'none');
+      document.querySelectorAll('.account-tabs .tag').forEach((button) => button.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).style.display = 'block';
+      document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tabName);
+      history.replaceState(null, '', url);
+      if (tabName === 'cart') renderCart();
+      if (tabName === 'tickets') loadTickets();
+    }
+
+    async function loadTickets() {
+      const list = document.getElementById('ticketsList');
+      try {
+        const res = await fetch('/api/my/tickets', { headers: { 'x-auth-token': user.token } });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        if (!json.data.length) {
+          list.innerHTML = '<div class="tool-panel"><p style="color:var(--text-muted)">Ainda não tem bilhetes comprados.</p></div>';
+          return;
+        }
+        list.innerHTML = json.data.map((ticket) => {
+          const pdf = ticket.pdfUrl || ticket.pdfFile || '#';
+          const href = /^https?:\/\//.test(pdf) || pdf.startsWith('/') ? pdf : `/tickets/${pdf}`;
+          return `
+            <article class="my-event-row">
+              <span class="my-event-emoji">B</span>
+              <div class="my-event-info">
+                <strong>${UI.escapeHTML(ticket.eventName)}</strong>
+                <small>${UI.escapeHTML(ticket.ticketCode)} · ${UI.formatDate(ticket.purchaseDate)} · ${UI.formatMoney(ticket.totalPrice)}</small>
+              </div>
+              <span class="status-badge ${ticket.validated ? 'status-used' : 'status-valid'}">${ticket.validated ? 'Usado' : 'Válido'}</span>
+              <a class="btn-download" href="${href}" target="_blank" rel="noopener">PDF</a>
+            </article>
+          `;
+        }).join('');
+      } catch {
+        list.innerHTML = '<div class="form-error">Não foi possível carregar os bilhetes.</div>';
+      }
+    }
+
+    function renderCart() {
+      const items = readCart();
+      const list = document.getElementById('cartList');
+      document.getElementById('cartMessage').style.display = 'none';
+      document.getElementById('cartError').style.display = 'none';
+      updateCartBadge();
+
+      if (!items.length) {
+        list.innerHTML = '<div class="tool-panel"><p style="color:var(--text-muted)">O carrinho está vazio.</p><a href="/" class="btn-secondary" style="display:inline-block;width:auto;margin-top:16px">Ver eventos</a></div>';
+        return;
+      }
+
+      const total = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 1), 0);
+      list.innerHTML = `
+        ${items.map((item, index) => `
+          <article class="my-event-row">
+            <span class="my-event-emoji">${UI.escapeHTML(item.emoji || 'B')}</span>
+            <div class="my-event-info">
+              <strong>${UI.escapeHTML(item.name)}</strong>
+              <small>${Number(item.quantity || 1)} bilhete(s) · ${UI.formatMoney(Number(item.price || 0) * Number(item.quantity || 1))}</small>
+            </div>
+            <button class="btn-secondary" type="button" style="width:auto;margin:0" onclick="removeCartItem(${index})">Remover</button>
+          </article>
+        `).join('')}
+        <div class="price-summary" style="margin-top:16px">
+          <span>Total do carrinho</span>
+          <span class="price-total">${UI.formatMoney(total)}</span>
+        </div>
+      `;
+    }
+
+    function removeCartItem(index) {
+      const items = readCart();
+      items.splice(index, 1);
+      writeCart(items);
+      renderCart();
+    }
+
+    async function checkoutCart() {
+      const items = readCart();
+      const message = document.getElementById('cartMessage');
+      const error = document.getElementById('cartError');
+      message.style.display = 'none';
+      error.style.display = 'none';
+
+      if (!items.length) {
+        error.textContent = 'O carrinho está vazio.';
+        error.style.display = 'block';
+        return;
+      }
+
+      const results = [];
+      try {
+        for (const item of items) {
+          const res = await fetch('/api/purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': user.token },
+            body: JSON.stringify({ eventId: item.eventId, quantity: item.quantity })
+          });
+          const json = await res.json();
+          if (!json.success) throw new Error(json.message || `Erro ao comprar ${item.name}`);
+          results.push(json.data);
+        }
+
+        const mergedTickets = results.flatMap((purchase) => purchase.tickets || []);
+        const totalPrice = results.reduce((sum, purchase) => sum + Number(purchase.totalPrice || 0), 0);
+        sessionStorage.setItem('lastPurchase', JSON.stringify({
+          eventName: results.length === 1 ? results[0].eventName : 'Compra no carrinho',
+          customerName: user.name,
+          totalPrice,
+          quantity: mergedTickets.length,
+          tickets: mergedTickets
+        }));
+        writeCart([]);
+        window.location.href = '/confirmation';
+      } catch (err) {
+        error.textContent = err.message || 'Não foi possível concluir a compra.';
+        error.style.display = 'block';
+      }
+    }
+
+    async function changePassword() {
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const error = document.getElementById('passwordError');
+      const success = document.getElementById('passwordSuccess');
+      error.style.display = 'none';
+      success.style.display = 'none';
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        error.textContent = 'Preencha todos os campos.';
+        error.style.display = 'block';
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        error.textContent = 'As novas senhas não coincidem.';
+        error.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': user.token },
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message);
+        success.textContent = json.message;
+        success.style.display = 'block';
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+      } catch (err) {
+        error.textContent = err.message || 'Não foi possível alterar a senha.';
+        error.style.display = 'block';
+      }
+    }
+
+    document.querySelectorAll('.account-tabs .tag').forEach((button) => {
+      button.addEventListener('click', () => showTab(button.dataset.tab));
+    });
+
+    if (user.token && user.name) {
+      document.getElementById('accountShell').style.display = 'block';
+      document.getElementById('userGreeting').textContent = `${user.name}, consulte bilhetes, finalize o carrinho e altere a sua senha.`;
+      updateCartBadge();
+      const initialTab = new URLSearchParams(window.location.search).get('tab') || 'tickets';
+      showTab(['tickets', 'cart', 'password'].includes(initialTab) ? initialTab : 'tickets');
+    } else {
+      document.getElementById('notLoggedIn').style.display = 'block';
+    }
+  </script>
+</body>
+</html>

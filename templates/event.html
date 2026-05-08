@@ -17,7 +17,6 @@
     </div>
     <div class="nav-links">
       <a href="/" class="nav-link">Eventos</a>
-      <a href="/validate" class="nav-link">Validar</a>
       <div id="navAuth"></div>
     </div>
   </nav>
@@ -104,6 +103,9 @@
               <span id="btnText">Confirmar compra</span>
               <div class="btn-spinner" id="btnSpinner" style="display:none"></div>
             </button>
+            <button class="btn-secondary" id="cartBtn" type="button" onclick="addToCart()" style="margin-top:10px">
+              Adicionar ao carrinho
+            </button>
             <p class="form-disclaimer">Depois da compra, o PDF começa a descarregar automaticamente.</p>
           </div>
         </aside>
@@ -152,7 +154,7 @@
 
     function populateDetail(event) {
       document.title = `${event.name} | BilheteAO`;
-      maxQty = Math.max(1, Math.min(5, Number(event.availableSeats || 1)));
+      maxQty = Math.max(1, Number(event.availableSeats || 1));
 
       const heroDiv = document.getElementById('eventHeroImage');
       if (event.coverUrl) {
@@ -204,6 +206,37 @@
       document.getElementById('priceTotal').textContent = UI.formatMoney(currentEvent.price * qty);
     }
 
+    function addToCart() {
+      if (!currentEvent) return;
+      const qty = Number(document.getElementById('quantity').value || 1);
+      const cartKey = 'bilheteaoCart';
+      let cart = [];
+      try { cart = JSON.parse(localStorage.getItem(cartKey) || '[]'); } catch { cart = []; }
+
+      const existing = cart.find((item) => item.eventId === currentEvent.id);
+      if (existing) {
+        existing.quantity = Math.min(maxQty, Number(existing.quantity || 0) + qty);
+      } else {
+        cart.push({
+          eventId: currentEvent.id,
+          name: currentEvent.name,
+          price: currentEvent.price,
+          emoji: currentEvent.emoji || 'B',
+          quantity: qty
+        });
+      }
+
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+      const errBox = document.getElementById('formError');
+      errBox.textContent = 'Bilhete(s) adicionados ao carrinho.';
+      errBox.className = 'form-success';
+      errBox.style.display = 'block';
+      setTimeout(() => {
+        errBox.style.display = 'none';
+        errBox.className = 'form-error';
+      }, 2600);
+    }
+
     async function submitPurchase() {
       const quantity = document.getElementById('quantity').value;
       const token = localStorage.getItem('authToken');
@@ -223,21 +256,21 @@
         const json = await res.json();
 
         if (json.success) {
-          const link = document.createElement('a');
-          link.href = json.data.pdfUrl;
-          link.download = `bilhete-${json.data.ticketCode}.pdf`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          const params = new URLSearchParams({
-            ticket: json.data.ticketCode,
-            event: json.data.eventName,
-            name: json.data.customerName,
-            price: json.data.totalPrice,
-            pdf: json.data.pdfUrl
+          const tickets = json.data.tickets || [{ ticketCode: json.data.ticketCode, pdfUrl: json.data.pdfUrl }];
+          tickets.forEach((ticket, index) => {
+            if (!ticket.pdfUrl) return;
+            setTimeout(() => {
+              const link = document.createElement('a');
+              link.href = ticket.pdfUrl;
+              link.download = `bilhete-${ticket.ticketCode}.pdf`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }, index * 300);
           });
-          window.location.href = `/confirmation?${params}`;
+
+          sessionStorage.setItem('lastPurchase', JSON.stringify(json.data));
+          window.location.href = '/confirmation';
           return;
         }
 

@@ -150,13 +150,20 @@
 
 <script>
   const token = localStorage.getItem('adminToken');
-  if (!token) window.location.href = '/admin';
+  if (!token) window.location.href = `/admin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
   const H = { 'Content-Type': 'application/json', 'x-admin-token': token };
+
+  function pdfHref(value) {
+    if (!value) return '#';
+    if (/^https?:\/\//.test(value) || value.startsWith('/')) return value;
+    return `/tickets/${value}`;
+  }
 
   function showTab(name, btn) {
     document.querySelectorAll('.admin-tab').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
     document.getElementById(`tab-${name}`).style.display = 'block';
+    if (!btn) btn = Array.from(document.querySelectorAll('.sidebar-link')).find(l => l.getAttribute('onclick')?.includes(`'${name}'`));
     if (btn) btn.classList.add('active');
     const loaders = { overview: loadStats, events: loadEvents, pending: loadPending, sales: loadSales, users: loadUsers };
     if (loaders[name]) loaders[name]();
@@ -318,7 +325,7 @@
           <td>${s.totalPrice.toLocaleString('pt-AO')} AOA</td>
           <td>${new Date(s.purchaseDate).toLocaleString('pt-PT')}</td>
           <td><span class="status-badge ${s.validated ? 'status-used' : 'status-valid'}">${s.validated ? '✅ Usado' : '🟢 Válido'}</span></td>
-          <td><a href="/tickets/${s.pdfFile}" class="btn-download" target="_blank">⬇ PDF</a></td>
+          <td><a href="${pdfHref(s.pdfUrl || s.pdfFile)}" class="btn-download" target="_blank" rel="noopener">PDF</a></td>
         </tr>`).join('')
       : '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">Nenhuma venda registada.</td></tr>';
   }
@@ -332,7 +339,7 @@
       <td>${u.name}</td>
       <td>${u.email}</td>
       <td><span class="status-badge ${u.role === 'admin' ? 'status-valid' : 'status-used'}">${u.role === 'admin' ? '🔐 Admin' : '👤 User'}</span></td>
-      <td>${new Date(u.createdAt).toLocaleDateString('pt-PT')}</td>
+      <td>${u.createdAt || u.created_at ? new Date(u.createdAt || u.created_at).toLocaleDateString('pt-PT') : '—'}</td>
     </tr>`).join('');
   }
 
@@ -341,7 +348,7 @@
     const code = document.getElementById('adminTicketCode').value.trim();
     const resultDiv = document.getElementById('adminValidResult');
     if (!code) return;
-    const res  = await fetch('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-auth-token': token }, body: JSON.stringify({ ticketCode: code }) });
+    const res  = await fetch('/api/admin/validate', { method: 'POST', headers: H, body: JSON.stringify({ ticketCode: code }) });
     const json = await res.json();
     if (json.valid) {
       const d = json.data;
@@ -353,7 +360,7 @@
           <div class="val-row"><span>Quantidade</span><strong>${d.quantity}</strong></div>
         </div></div>`;
     } else {
-      resultDiv.innerHTML = `<div class="validate-box invalid"><div class="validate-icon">❌</div><h3>Inválido</h3><p>${json.message}</p></div>`;
+      resultDiv.innerHTML = `<div class="validate-box invalid"><div class="validate-icon">!</div><h3>${json.success ? 'Já utilizado' : 'Inválido'}</h3><p>${json.message}</p></div>`;
     }
     resultDiv.style.display = 'block';
     loadSales();
@@ -385,9 +392,16 @@
     window.location.href = '/admin';
   }
 
-  function checkAuth() { localStorage.removeItem('adminToken'); window.location.href = '/admin'; }
+  function checkAuth() { localStorage.removeItem('adminToken'); window.location.href = `/admin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`; }
 
-  loadStats();
+  const initialParams = new URLSearchParams(window.location.search);
+  const initialTab = initialParams.get('tab') || 'overview';
+  showTab(['overview', 'events', 'pending', 'sales', 'users', 'validate', 'settings'].includes(initialTab) ? initialTab : 'overview');
+  const initialCode = initialParams.get('code');
+  if (initialCode) {
+    document.getElementById('adminTicketCode').value = initialCode.toUpperCase();
+    if (initialTab === 'validate') adminValidate();
+  }
 </script>
 </body>
 </html>

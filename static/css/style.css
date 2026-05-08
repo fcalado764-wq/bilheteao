@@ -1836,6 +1836,26 @@ a { color: inherit; }
   gap: 10px;
 }
 
+.account-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 26px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.04);
+}
+
+.account-tab {
+  min-height: 280px;
+}
+
+.ticket-list {
+  display: grid;
+  gap: 12px;
+}
+
 .checkmark {
   background: var(--accent);
   color: #08110f;

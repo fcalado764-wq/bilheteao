@@ -31,6 +31,7 @@
             <strong>${escapeHTML(name)}</strong>
             ${email ? `<span>${escapeHTML(email)}</span>` : ''}
           </div>
+          <a href="/account" class="dropdown-item">Minha conta</a>
           <a href="/submit-event" class="dropdown-item">Propor evento</a>
           <button class="dropdown-item" type="button" onclick="doLogout()">Terminar sessão</button>
         </div>

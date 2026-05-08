@@ -3,144 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Validar Bilhete | BilheteAO</title>
+  <title>Validação | BilheteAO</title>
   <link rel="stylesheet" href="/css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <nav class="navbar">
-    <div class="nav-brand">
-      <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:10px;color:inherit">
-        <span class="brand-icon">B</span>
-        <span class="brand-name">BilheteAO</span>
-      </a>
-    </div>
-    <div class="nav-links">
-      <a href="/" class="nav-link">Eventos</a>
-      <a href="/validate" class="nav-link active">Validar</a>
-      <div id="navAuth"></div>
-    </div>
-  </nav>
-
   <main class="main-content">
-    <div class="container">
-      <div class="tool-shell">
-        <section class="tool-intro">
-          <span class="section-kicker">Entrada do evento</span>
-          <h1 class="page-title">Validação rápida de bilhetes.</h1>
-          <p class="page-sub">Digite o código do bilhete ou abra esta página através do QR Code para confirmar a autenticidade e marcar entrada.</p>
-        </section>
-
-        <section class="tool-panel">
-          <div id="notLoggedIn" style="display:none">
-            <div class="auth-notice">
-              <h3>Validação requer sessão</h3>
-              <p>Inicie sessão para validar bilhetes e registar a entrada.</p>
-              <a id="validateLoginLink" href="/login?redirect=/validate" class="btn-purchase" style="text-decoration:none;margin-top:18px">Iniciar sessão</a>
-            </div>
-          </div>
-
-          <div id="validatorPanel" style="display:none">
-            <div class="form-group">
-              <label class="form-label">Código do bilhete</label>
-              <input type="text" id="ticketCodeInput" class="form-input"
-                placeholder="Ex: TKT-A1B2C3D4"
-                style="text-transform:uppercase;letter-spacing:2px;font-weight:700"
-                oninput="this.value = this.value.toUpperCase()">
-            </div>
-            <button class="btn-purchase" id="validateBtn" type="button" onclick="validateTicket()">
-              <span id="validateText">Verificar bilhete</span>
-              <div class="btn-spinner" id="validateSpinner" style="display:none"></div>
-            </button>
-          </div>
-
-          <div id="validResult" style="margin-top:22px;display:none"></div>
-        </section>
+    <div class="container" style="max-width:620px;text-align:center">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>A abrir a validação no painel do administrador...</p>
       </div>
     </div>
   </main>
 
-  <footer class="footer">
-    <p>© 2026 BilheteAO.</p>
-  </footer>
-
-  <script src="/js/auth.js"></script>
-  <script src="/js/public-ui.js"></script>
   <script>
-    const UI = window.BilheteUI;
-    const token = localStorage.getItem('authToken');
-    const input = document.getElementById('ticketCodeInput');
-    const resultDiv = document.getElementById('validResult');
-
-    function setLoading(isLoading) {
-      document.getElementById('validateBtn').disabled = isLoading;
-      document.getElementById('validateText').style.display = isLoading ? 'none' : 'block';
-      document.getElementById('validateSpinner').style.display = isLoading ? 'block' : 'none';
-    }
-
-    async function validateTicket() {
-      const code = input.value.trim();
-
-      if (!code) {
-        resultDiv.innerHTML = '<div class="validate-box invalid">Introduza um código de bilhete.</div>';
-        resultDiv.style.display = 'block';
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const res = await fetch('/api/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
-          body: JSON.stringify({ ticketCode: code })
-        });
-        const json = await res.json();
-
-        if (json.valid) {
-          const data = json.data;
-          resultDiv.innerHTML = `
-            <div class="validate-box valid">
-              <div class="validate-icon">✓</div>
-              <h3>Bilhete válido</h3>
-              <p>${UI.escapeHTML(json.message)}</p>
-              <div class="val-details">
-                <div class="val-row"><span>Evento</span><strong>${UI.escapeHTML(data.eventName)}</strong></div>
-                <div class="val-row"><span>Titular</span><strong>${UI.escapeHTML(data.customerName)}</strong></div>
-                <div class="val-row"><span>Código</span><strong>${UI.escapeHTML(data.ticketCode)}</strong></div>
-                <div class="val-row"><span>Quantidade</span><strong>${UI.escapeHTML(data.quantity)} bilhete(s)</strong></div>
-              </div>
-            </div>`;
-        } else {
-          resultDiv.innerHTML = `
-            <div class="validate-box invalid">
-              <div class="validate-icon">!</div>
-              <h3>Bilhete inválido</h3>
-              <p>${UI.escapeHTML(json.message || 'Não foi possível validar este bilhete.')}</p>
-              ${json.data ? `<small>Código: ${UI.escapeHTML(json.data.ticketCode)}</small>` : ''}
-            </div>`;
-        }
-        resultDiv.style.display = 'block';
-      } catch {
-        resultDiv.innerHTML = '<div class="validate-box invalid">Erro ao comunicar com o servidor.</div>';
-        resultDiv.style.display = 'block';
-      }
-      setLoading(false);
-    }
-
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') validateTicket();
-    });
-
-    if (token) {
-      document.getElementById('validatorPanel').style.display = 'block';
-      const code = new URLSearchParams(window.location.search).get('code');
-      if (code) {
-        input.value = code.toUpperCase();
-        validateTicket();
-      }
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const target = `/admin/dashboard?tab=validate${code ? `&code=${encodeURIComponent(code)}` : ''}`;
+    if (localStorage.getItem('adminToken')) {
+      window.location.replace(target);
     } else {
-      document.getElementById('validateLoginLink').href = `/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-      document.getElementById('notLoggedIn').style.display = 'block';
+      window.location.replace(`/admin?redirect=${encodeURIComponent(target)}`);
     }
   </script>
 </body>

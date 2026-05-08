@@ -17,7 +17,6 @@
     </div>
     <div class="nav-links">
       <a href="/" class="nav-link">Eventos</a>
-      <a href="/validate" class="nav-link">Validar</a>
       <div id="navAuth"></div>
     </div>
   </nav>
@@ -42,7 +41,7 @@
           <span class="conf-value" id="confName">--</span>
         </div>
         <div class="conf-row">
-          <span class="conf-label">Código do bilhete</span>
+          <span class="conf-label">Bilhete(s)</span>
           <span class="conf-value conf-code" id="confTicket">--</span>
         </div>
         <div class="conf-row">
@@ -52,8 +51,9 @@
       </div>
 
       <div class="confirmation-actions">
-        <a id="downloadBtn" href="#" class="btn-purchase" style="text-decoration:none">Descarregar PDF</a>
+        <div id="downloadLinks"></div>
         <a href="/" class="btn-secondary">Ver mais eventos</a>
+        <a href="/account" class="btn-secondary">Minha conta</a>
       </div>
 
       <p class="disclaimer-box">
@@ -71,14 +71,33 @@
   <script>
     const UI = window.BilheteUI;
     const params = new URLSearchParams(window.location.search);
-    document.getElementById('confEvent').textContent = params.get('event') || '--';
-    document.getElementById('confName').textContent = params.get('name') || '--';
-    document.getElementById('confTicket').textContent = params.get('ticket') || '--';
-    const price = Number(params.get('price'));
-    document.getElementById('confPrice').textContent = price ? UI.formatMoney(price) : '--';
+    let purchase = null;
+    try { purchase = JSON.parse(sessionStorage.getItem('lastPurchase') || 'null'); } catch { purchase = null; }
 
-    const pdfUrl = params.get('pdf');
-    if (pdfUrl) document.getElementById('downloadBtn').href = pdfUrl;
+    if (!purchase) {
+      purchase = {
+        eventName: params.get('event') || '--',
+        customerName: params.get('name') || '--',
+        totalPrice: Number(params.get('price')) || 0,
+        tickets: [{ ticketCode: params.get('ticket') || '--', pdfUrl: params.get('pdf') || '#' }]
+      };
+    }
+
+    const tickets = purchase.tickets || [];
+    document.getElementById('confEvent').textContent = purchase.eventName || '--';
+    document.getElementById('confName').textContent = purchase.customerName || '--';
+    document.getElementById('confTicket').textContent = tickets.map((ticket) => ticket.ticketCode).join(', ') || '--';
+    document.getElementById('confPrice').textContent = purchase.totalPrice ? UI.formatMoney(purchase.totalPrice) : '--';
+    document.querySelector('.success-title').textContent = tickets.length > 1 ? 'Bilhetes gerados com sucesso.' : 'Bilhete gerado com sucesso.';
+
+    document.getElementById('downloadLinks').innerHTML = tickets.map((ticket, index) => {
+      const pdf = ticket.pdfUrl || '#';
+      const href = /^https?:\/\//.test(pdf) || pdf.startsWith('/') || pdf === '#' ? pdf : `/tickets/${pdf}`;
+      return `
+      <a href="${href}" class="btn-purchase" style="text-decoration:none;margin-bottom:10px" target="_blank" rel="noopener">
+        Descarregar PDF ${tickets.length > 1 ? index + 1 : ''}
+      </a>`;
+    }).join('');
   </script>
 </body>
 </html>

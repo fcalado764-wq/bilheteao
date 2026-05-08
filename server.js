@@ -155,6 +155,7 @@ async function requireAdminAuth(req, res, next) {
     .from('admin_sessions').select('*').eq('token', token)
     .gt('expires_at', new Date().toISOString()).single();
   if (error || !data) return res.status(401).json({ success: false, message: 'Sessão admin expirada.' });
+  req.admin = { username: data.username };
   next();
 }
 
@@ -171,6 +172,21 @@ function withExtras(e) {
   };
 }
 
+function saleWithExtras(s) {
+  return {
+    ...s,
+    purchaseDate: s.purchased_at,
+    pdfFile: s.pdf_file,
+    pdfUrl: s.pdf_file,
+    ticketCode: s.ticket_code,
+    eventName: s.event_name,
+    customerName: s.customer_name,
+    customerEmail: s.customer_email,
+    totalPrice: parseFloat(s.total_price) || 0,
+    quantity: parseInt(s.quantity, 10) || 1
+  };
+}
+
 // ------------------------------------------------------------
 // PÁGINAS HTML
 // ------------------------------------------------------------
@@ -178,7 +194,7 @@ const pages = {
   '/': 'index.html', '/event/:id': 'event.html',
   '/confirmation': 'confirmation.html', '/validate': 'validate.html',
   '/login': 'login.html', '/register': 'register.html',
-  '/submit-event': 'submit-event.html',
+  '/submit-event': 'submit-event.html', '/account': 'account.html',
   '/admin': 'admin-login.html', '/admin/dashboard': 'admin-dashboard.html'
 };
 Object.entries(pages).forEach(([route, file]) => {
@@ -233,6 +249,27 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ success: true, user: req.user });
 });
 
+app.put('/api/auth/password', requireAuth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ success: false, message: 'Preencha a senha actual e a nova senha.' });
+  if (newPassword.length < 6)
+    return res.status(400).json({ success: false, message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+
+  const { data: user, error } = await supabaseAdmin
+    .from('users').select('password').eq('id', req.user.id).single();
+  if (error || !user) return res.status(404).json({ success: false, message: 'Utilizador não encontrado.' });
+  if (user.password !== currentPassword)
+    return res.status(400).json({ success: false, message: 'Senha actual incorrecta.' });
+
+  const { error: updateError } = await supabaseAdmin
+    .from('users').update({ password: newPassword }).eq('id', req.user.id);
+  if (updateError) return res.status(500).json({ success: false, message: 'Erro ao actualizar senha.' });
+
+  await supabaseAdmin.from('sessions').delete().eq('user_id', req.user.id).neq('token', req.headers['x-auth-token']);
+  res.json({ success: true, message: 'Senha actualizada com sucesso.' });
+});
+
 // ------------------------------------------------------------
 // API ADMIN AUTH + CREDENCIAIS
 // ------------------------------------------------------------
@@ -280,25 +317,20 @@ app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
     pendingEvents:    events.filter(e => e.status==='pending').length,
     totalUsers:       (usRes.data||[]).length,
     totalSales:       sales.length,
-    totalTickets:     sales.reduce((s,x) => s+x.quantity, 0),
-    totalRevenue:     sales.reduce((s,x) => s+parseFloat(x.total_price), 0),
+    totalTickets:     sales.reduce((s,x) => s+(parseInt(x.quantity, 10) || 1), 0),
+    totalRevenue:     sales.reduce((s,x) => s+(parseFloat(x.total_price) || 0), 0),
     validatedTickets: sales.filter(s => s.validated).length
   }});
 });
 
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   const { data } = await supabaseAdmin.from('users').select('id,name,email,role,created_at').order('created_at', { ascending: false });
-  res.json({ success: true, data: data||[] });
+  res.json({ success: true, data: (data||[]).map(u => ({ ...u, createdAt: u.created_at })) });
 });
 
 app.get('/api/admin/sales', requireAdminAuth, async (req, res) => {
   const { data } = await supabaseAdmin.from('sales').select('*').order('purchased_at', { ascending: false });
-  res.json({ success: true, data: (data||[]).map(s => ({
-    ...s, purchaseDate: s.purchased_at, pdfFile: s.pdf_file,
-    ticketCode: s.ticket_code, eventName: s.event_name,
-    customerName: s.customer_name, customerEmail: s.customer_email,
-    totalPrice: parseFloat(s.total_price)
-  }))});
+  res.json({ success: true, data: (data||[]).map(saleWithExtras) });
 });
 
 app.get('/api/admin/events', requireAdminAuth, async (req, res) => {
@@ -383,12 +415,20 @@ app.get('/api/events/my/submissions', requireAuth, async (req, res) => {
   res.json({ success: true, data: (data||[]).map(withExtras) });
 });
 
+app.get('/api/my/tickets', requireAuth, async (req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('sales').select('*').eq('user_id', req.user.id)
+    .order('purchased_at', { ascending: false });
+  if (error) return res.status(500).json({ success: false, message: error.message });
+  res.json({ success: true, data: (data||[]).map(saleWithExtras) });
+});
+
 // ------------------------------------------------------------
 // API COMPRA — PDF em memória + Supabase Storage
 // ------------------------------------------------------------
 app.post('/api/purchase', requireAuth, async (req, res) => {
   const { eventId, quantity } = req.body;
-  const qty = parseInt(quantity) || 1;
+  const qty = Math.max(1, parseInt(quantity, 10) || 1);
 
   const { data: event, error: evErr } = await supabaseAdmin
     .from('events').select('*').eq('id', eventId).eq('status', 'approved').single();
@@ -396,42 +436,61 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
   if (event.sold_seats + qty > event.total_seats)
     return res.status(400).json({ success: false, message: 'Lugares insuficientes.' });
 
-  const ticketCode   = `TKT-${uuidv4().substring(0,8).toUpperCase()}`;
   const purchaseDate = new Date();
-  const validateUrl  = `${SITE_URL}/validate?code=${ticketCode}`;
+  const tickets = [];
+  const saleRows = [];
 
   try {
-    // Gerar QR Code
-    const qrCodeDataURL = await QRCode.toDataURL(validateUrl, {
-      errorCorrectionLevel: 'H', margin: 1,
-      color: { dark: '#1a1a2e', light: '#FFFFFF' }, width: 200
-    });
+    for (let i = 0; i < qty; i++) {
+      const ticketCode = `TKT-${uuidv4().substring(0,8).toUpperCase()}`;
+      const validateUrl = `${SITE_URL}/admin/dashboard?tab=validate&code=${ticketCode}`;
 
-    // Gerar PDF em memória
-    const pdfBuffer  = await generateTicketPDF({ ticketCode, event, customerName: req.user.name, customerEmail: req.user.email, quantity: qty, purchaseDate, qrCodeDataURL });
-    const pdfFileName = `bilhete-${ticketCode}.pdf`;
+      const qrCodeDataURL = await QRCode.toDataURL(validateUrl, {
+        errorCorrectionLevel: 'H', margin: 1,
+        color: { dark: '#1a1a2e', light: '#FFFFFF' }, width: 200
+      });
 
-    // Guardar PDF no Supabase Storage
-    const pdfUrl = await uploadPDF(pdfBuffer, pdfFileName);
+      const pdfBuffer = await generateTicketPDF({
+        ticketCode, event,
+        customerName: req.user.name, customerEmail: req.user.email,
+        quantity: 1, purchaseDate, qrCodeDataURL
+      });
+      const pdfFileName = `bilhete-${ticketCode}.pdf`;
+      const pdfUrl = await uploadPDF(pdfBuffer, pdfFileName);
+      if (!pdfUrl) throw new Error('Não foi possível guardar o PDF no Supabase Storage.');
+
+      tickets.push({
+        ticketCode,
+        pdfUrl,
+        price: parseFloat(event.price) || 0,
+        validateUrl
+      });
+
+      saleRows.push({
+        ticket_code: ticketCode, event_id: eventId,
+        event_name: event.name, customer_name: req.user.name,
+        customer_email: req.user.email, user_id: req.user.id,
+        quantity: 1, total_price: event.price,
+        pdf_file: pdfUrl, validated: false
+      });
+    }
 
     // Actualizar lugares vendidos
     await supabaseAdmin.from('events').update({ sold_seats: event.sold_seats + qty }).eq('id', eventId);
 
-    // Registar venda
-    await supabaseAdmin.from('sales').insert({
-      ticket_code: ticketCode, event_id: eventId,
-      event_name: event.name, customer_name: req.user.name,
-      customer_email: req.user.email, user_id: req.user.id,
-      quantity: qty, total_price: event.price * qty,
-      pdf_file: pdfUrl || pdfFileName, validated: false
-    });
+    const { error: saleErr } = await supabaseAdmin.from('sales').insert(saleRows);
+    if (saleErr) throw saleErr;
 
     res.json({
-      success: true, message: 'Bilhete gerado!',
+      success: true, message: qty > 1 ? 'Bilhetes gerados!' : 'Bilhete gerado!',
       data: {
-        ticketCode, eventName: event.name,
-        customerName: req.user.name, totalPrice: event.price * qty,
-        pdfUrl: pdfUrl || null
+        tickets,
+        ticketCode: tickets[0]?.ticketCode,
+        pdfUrl: tickets[0]?.pdfUrl,
+        eventName: event.name,
+        customerName: req.user.name,
+        totalPrice: (parseFloat(event.price) || 0) * qty,
+        quantity: qty
       }
     });
   } catch(err) {
@@ -443,22 +502,31 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
 // ------------------------------------------------------------
 // API VALIDAÇÃO
 // ------------------------------------------------------------
-app.post('/api/validate', requireAuth, async (req, res) => {
+async function validateTicket(req, res, validatedBy) {
   const { ticketCode } = req.body;
+  if (!ticketCode) return res.status(400).json({ success: false, valid: false, message: 'Informe o código do bilhete.' });
   const { data: sale, error } = await supabaseAdmin
     .from('sales').select('*').eq('ticket_code', ticketCode).single();
   if (error || !sale) return res.json({ success: false, valid: false, message: 'Bilhete inválido ou inexistente.' });
   if (sale.validated) return res.json({
     success: true, valid: false, message: 'Este bilhete já foi utilizado.',
-    data: { ...sale, ticketCode: sale.ticket_code, eventName: sale.event_name, customerName: sale.customer_name, customerEmail: sale.customer_email }
+    data: saleWithExtras(sale)
   });
   await supabaseAdmin.from('sales').update({
-    validated: true, validated_at: new Date().toISOString(), validated_by: req.user.name
+    validated: true, validated_at: new Date().toISOString(), validated_by: validatedBy
   }).eq('ticket_code', ticketCode);
   res.json({
     success: true, valid: true, message: 'Bilhete válido! Acesso autorizado.',
-    data: { ...sale, ticketCode: sale.ticket_code, eventName: sale.event_name, customerName: sale.customer_name, customerEmail: sale.customer_email, validatedBy: req.user.name }
+    data: { ...saleWithExtras(sale), validatedBy }
   });
+}
+
+app.post('/api/validate', requireAuth, async (req, res) => {
+  await validateTicket(req, res, req.user.name);
+});
+
+app.post('/api/admin/validate', requireAdminAuth, async (req, res) => {
+  await validateTicket(req, res, req.admin.username || 'Administrador');
 });
 
 app.listen(PORT, () => {

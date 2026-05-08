@@ -32,8 +32,9 @@
 
   <script>
     // Se já tiver sessão, redireciona
+    const redirect = new URLSearchParams(window.location.search).get('redirect') || '/admin/dashboard';
     if (localStorage.getItem('adminToken')) {
-      window.location.href = '/admin/dashboard';
+      window.location.href = redirect;
     }
 
     async function doLogin() {
@@ -58,7 +59,7 @@
 
         if (json.success) {
           localStorage.setItem('adminToken', json.token);
-          window.location.href = '/admin/dashboard';
+          window.location.href = redirect;
         } else {
           errBox.textContent = json.message || 'Credenciais inválidas.';
           errBox.style.display = 'block';
