@@ -86,6 +86,11 @@
             <div id="formError" class="form-error" style="display:none"></div>
 
             <div class="form-group">
+              <label class="form-label">Tipo de bilhete</label>
+              <select id="ticketType" class="form-input" onchange="onTicketTypeChange()"></select>
+            </div>
+
+            <div class="form-group">
               <label class="form-label">Quantidade de bilhetes</label>
               <div class="ticket-stepper">
                 <button type="button" class="stepper-btn" onclick="changeQty(-1)" aria-label="Diminuir quantidade">-</button>
@@ -131,6 +136,7 @@
     const eventId = window.location.pathname.split('/').pop();
     let currentEvent = null;
     let maxQty = 1;
+    let selectedTicketType = null;
 
     async function loadEvent() {
       try {
@@ -154,7 +160,16 @@
 
     function populateDetail(event) {
       document.title = `${event.name} | BilheteAO`;
-      maxQty = Math.max(1, Number(event.availableSeats || 1));
+      const availableTypes = event.ticketTypes || [];
+      selectedTicketType = availableTypes.find((type) => Number(type.totalSeats || 0) > Number(type.soldSeats || 0)) || availableTypes[0] || {
+        id: 'normal',
+        name: 'Normal',
+        price: Number(event.price || 0),
+        totalSeats: Number(event.totalSeats || event.availableSeats || 1),
+        soldSeats: Number(event.soldSeats || 0)
+      };
+      renderTicketTypes(event.ticketTypes || [selectedTicketType]);
+      updateTypeAvailability();
 
       const heroDiv = document.getElementById('eventHeroImage');
       if (event.coverUrl) {
@@ -200,10 +215,66 @@
       updatePrice();
     }
 
+    function renderTicketTypes(types) {
+      const select = document.getElementById('ticketType');
+      select.innerHTML = types.map((type) => {
+        const available = Math.max(0, Number(type.totalSeats || 0) - Number(type.soldSeats || 0));
+        return `<option value="${UI.escapeHTML(type.id)}" ${available <= 0 ? 'disabled' : ''}>${UI.escapeHTML(type.name)} - ${UI.formatMoney(type.price)} (${available} disponiveis)</option>`;
+      }).join('');
+      if (selectedTicketType) select.value = selectedTicketType.id;
+    }
+
+    function onTicketTypeChange() {
+      const value = document.getElementById('ticketType').value;
+      selectedTicketType = (currentEvent.ticketTypes || []).find((type) => type.id === value) || selectedTicketType;
+      document.getElementById('quantity').value = 1;
+      updateTypeAvailability();
+      updatePrice();
+    }
+
+    function updateTypeAvailability() {
+      if (!selectedTicketType) return;
+      maxQty = Math.max(1, Number(selectedTicketType.totalSeats || 0) - Number(selectedTicketType.soldSeats || 0));
+    }
+
     function updatePrice() {
       if (!currentEvent) return;
       const qty = Number(document.getElementById('quantity').value || 1);
-      document.getElementById('priceTotal').textContent = UI.formatMoney(currentEvent.price * qty);
+      const price = selectedTicketType ? selectedTicketType.price : currentEvent.price;
+      document.getElementById('priceTotal').textContent = UI.formatMoney(price * qty);
+    }
+
+    function addToCart() {
+      if (!currentEvent) return;
+      const qty = Number(document.getElementById('quantity').value || 1);
+      const cartKey = 'bilheteaoCart';
+      let cart = [];
+      try { cart = JSON.parse(localStorage.getItem(cartKey) || '[]'); } catch { cart = []; }
+
+      const existing = cart.find((item) => item.eventId === currentEvent.id);
+      if (existing) {
+        existing.quantity = Math.min(maxQty, Number(existing.quantity || 0) + qty);
+      } else {
+        cart.push({
+          eventId: currentEvent.id,
+          name: currentEvent.name,
+          ticketTypeId: selectedTicketType?.id,
+          ticketType: selectedTicketType?.name || 'Normal',
+          price: selectedTicketType?.price || currentEvent.price,
+          emoji: currentEvent.emoji || 'B',
+          quantity: qty
+        });
+      }
+
+      localStorage.setItem(cartKey, JSON.stringify(cart));
+      const errBox = document.getElementById('formError');
+      errBox.textContent = 'Bilhete(s) adicionados ao carrinho.';
+      errBox.className = 'form-success';
+      errBox.style.display = 'block';
+      setTimeout(() => {
+        errBox.style.display = 'none';
+        errBox.className = 'form-error';
+      }, 2600);
     }
 
     function addToCart() {
@@ -251,7 +322,7 @@
         const res = await fetch('/api/purchase', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
-          body: JSON.stringify({ eventId, quantity })
+          body: JSON.stringify({ eventId, quantity, ticketTypeId: selectedTicketType?.id })
         });
         const json = await res.json();
 

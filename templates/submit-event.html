@@ -57,7 +57,12 @@
                   <option>Desporto</option>
                   <option>Arte</option>
                   <option>Geral</option>
+                  <option>Personalizar</option>
                 </select>
+              </div>
+              <div class="form-group" id="customCategoryGroup" style="display:none">
+                <label class="form-label">Categoria personalizada</label>
+                <input type="text" id="evCustomCategory" class="form-input" placeholder="Ex: Workshop, Moda, Gastronomia">
               </div>
               <div class="form-group">
                 <label class="form-label">Ícone curto</label>
@@ -82,6 +87,11 @@
               <div class="form-group">
                 <label class="form-label">Total de lugares *</label>
                 <input type="number" id="evSeats" class="form-input" placeholder="200" min="1">
+              </div>
+              <div class="form-group" style="grid-column:1/-1">
+                <label class="form-label">Tipos de bilhete / areas</label>
+                <div id="ticketTypesList" class="ticket-types-editor"></div>
+                <button type="button" class="btn-secondary" style="width:auto;padding:10px 14px;margin-top:10px" onclick="addTicketType()">Adicionar area</button>
               </div>
               <div class="form-group" style="grid-column:1/-1">
                 <label class="form-label">Descrição</label>
@@ -168,10 +178,77 @@
   <script>
     const UI = window.BilheteUI;
     const token = localStorage.getItem('authToken');
+    let ticketTypes = [
+      { id: 'normal', name: 'Normal', price: '', totalSeats: '' },
+      { id: 'vip', name: 'VIP', price: '', totalSeats: '' },
+      { id: 'supervip', name: 'SuperVIP', price: '', totalSeats: '' }
+    ];
+
+    function slugify(value) {
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `area-${Date.now()}`;
+    }
+
+    function renderTicketTypes() {
+      const list = document.getElementById('ticketTypesList');
+      list.innerHTML = ticketTypes.map((type, index) => `
+        <div class="ticket-type-row">
+          <input class="form-input" value="${UI.escapeHTML(type.name)}" placeholder="Area" oninput="updateTicketType(${index}, 'name', this.value)">
+          <input class="form-input" type="number" min="1" value="${UI.escapeHTML(type.totalSeats)}" placeholder="Lugares" oninput="updateTicketType(${index}, 'totalSeats', this.value)">
+          <input class="form-input" type="number" min="0" value="${UI.escapeHTML(type.price)}" placeholder="Preco AOA" oninput="updateTicketType(${index}, 'price', this.value)">
+          <button class="stepper-btn" type="button" onclick="removeTicketType(${index})" aria-label="Remover area">-</button>
+        </div>`).join('');
+    }
+
+    function updateTicketType(index, field, value) {
+      ticketTypes[index][field] = value;
+      if (field === 'name') ticketTypes[index].id = slugify(value);
+      syncTicketTotals();
+      syncPreview();
+    }
+
+    function addTicketType() {
+      ticketTypes.push({ id: `area-${Date.now()}`, name: '', price: '', totalSeats: '' });
+      renderTicketTypes();
+    }
+
+    function removeTicketType(index) {
+      if (ticketTypes.length === 1) return;
+      ticketTypes.splice(index, 1);
+      renderTicketTypes();
+      syncTicketTotals();
+      syncPreview();
+    }
+
+    function cleanedTicketTypes() {
+      return ticketTypes
+        .map((type) => ({
+          id: slugify(type.id || type.name),
+          name: String(type.name || '').trim(),
+          price: Number(type.price),
+          totalSeats: parseInt(type.totalSeats, 10),
+          soldSeats: 0
+        }))
+        .filter((type) => type.name && Number.isFinite(type.price) && type.price >= 0 && Number.isFinite(type.totalSeats) && type.totalSeats > 0);
+    }
+
+    function syncTicketTotals() {
+      const types = cleanedTicketTypes();
+      const seats = types.reduce((sum, type) => sum + type.totalSeats, 0);
+      const minPrice = types.reduce((min, type) => Math.min(min, type.price), Number.POSITIVE_INFINITY);
+      if (seats > 0) document.getElementById('evSeats').value = seats;
+      if (Number.isFinite(minPrice)) document.getElementById('evPrice').value = minPrice;
+    }
+
+    function selectedCategory() {
+      const category = document.getElementById('evCategory').value || 'Música';
+      return category === 'Personalizar'
+        ? (document.getElementById('evCustomCategory').value.trim() || 'Personalizada')
+        : category;
+    }
 
     function syncPreview() {
       const name = document.getElementById('evName').value.trim() || 'Nome do evento';
-      const category = document.getElementById('evCategory').value || 'Música';
+      const category = selectedCategory();
       const emoji = document.getElementById('evEmoji').value.trim() || 'B';
       const desc = document.getElementById('evDesc').value.trim() || 'A descrição aparece aqui enquanto escreve.';
       const location = document.getElementById('evLocation').value.trim() || 'Local';
@@ -185,6 +262,8 @@
       document.getElementById('previewLocation').textContent = location;
       document.getElementById('previewDate').textContent = date ? UI.formatDate(date) : 'Data';
       document.getElementById('previewPrice').textContent = UI.formatMoney(price);
+      document.getElementById('customCategoryGroup').style.display =
+        document.getElementById('evCategory').value === 'Personalizar' ? 'block' : 'none';
     }
 
     function showPreview(input, previewId, areaId, isCover) {
@@ -283,9 +362,20 @@
       const location = document.getElementById('evLocation').value.trim();
       const price = document.getElementById('evPrice').value;
       const seats = document.getElementById('evSeats').value;
+      const types = cleanedTicketTypes();
 
       if (!name || !date || !time || !location || !price || !seats) {
         errBox.textContent = 'Preencha todos os campos obrigatórios.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if (document.getElementById('evCategory').value === 'Personalizar' && !document.getElementById('evCustomCategory').value.trim()) {
+        errBox.textContent = 'Informe a categoria personalizada.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if (!types.length) {
+        errBox.textContent = 'Adicione pelo menos uma area com lugares e preco.';
         errBox.style.display = 'block';
         return;
       }
@@ -302,6 +392,8 @@
       formData.append('price', price);
       formData.append('totalSeats', seats);
       formData.append('category', document.getElementById('evCategory').value);
+      formData.append('customCategory', document.getElementById('evCustomCategory').value.trim());
+      formData.append('ticketTypes', JSON.stringify(types));
       formData.append('emoji', document.getElementById('evEmoji').value || 'B');
       formData.append('description', document.getElementById('evDesc').value);
 
@@ -321,9 +413,15 @@
         if (json.success) {
           sucBox.textContent = json.message;
           sucBox.style.display = 'block';
-          ['evName', 'evDate', 'evTime', 'evLocation', 'evPrice', 'evSeats', 'evDesc', 'evEmoji'].forEach((id) => {
+          ['evName', 'evDate', 'evTime', 'evLocation', 'evPrice', 'evSeats', 'evDesc', 'evEmoji', 'evCustomCategory'].forEach((id) => {
             document.getElementById(id).value = '';
           });
+          ticketTypes = [
+            { id: 'normal', name: 'Normal', price: '', totalSeats: '' },
+            { id: 'vip', name: 'VIP', price: '', totalSeats: '' },
+            { id: 'supervip', name: 'SuperVIP', price: '', totalSeats: '' }
+          ];
+          renderTicketTypes();
           ['coverInput', 'posterInput'].forEach((id) => { document.getElementById(id).value = ''; });
           ['coverPreview', 'posterPreview'].forEach((id) => { document.getElementById(id).style.display = 'none'; });
           ['coverPlaceholder', 'posterPlaceholder'].forEach((id) => { document.getElementById(id).style.display = 'block'; });
@@ -352,6 +450,7 @@
 
     setupUpload('coverArea', 'coverInput', 'coverPreview', true);
     setupUpload('posterArea', 'posterInput', 'posterPreview', false);
+    renderTicketTypes();
     syncPreview();
 
     if (token) {

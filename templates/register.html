@@ -65,6 +65,12 @@
         return;
       }
 
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email)) {
+        errBox.textContent = 'Informe um e-mail valido.';
+        errBox.style.display = 'block';
+        return;
+      }
+
       if (password !== password2) {
         errBox.textContent = 'As senhas não coincidem.';
         errBox.style.display = 'block';

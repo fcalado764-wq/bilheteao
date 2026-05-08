@@ -8,7 +8,7 @@
   --bg-secondary:  #1a1a2e;
   --bg-card:       #1f2434;
   --bg-card-hover: #1c2a50;
-  --accent:        #e94560;
+  --accent:        #a74757;
   --accent-hover:  #c86a7d;
   --accent-soft:   rgba(198, 126, 138, 0.518);
   --text-primary:  #f0f0f5;
@@ -374,6 +374,22 @@ body {
 .form-input::placeholder { color: var(--text-muted); }
 
 textarea.form-input { resize: vertical; min-height: 80px; }
+
+.ticket-types-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.ticket-type-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.4fr) minmax(90px, 0.8fr) minmax(110px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ticket-type-row .form-input {
+  min-width: 0;
+}
 
 .price-summary {
   display: flex; justify-content: space-between; align-items: center;
@@ -849,6 +865,7 @@ textarea.form-input { resize: vertical; min-height: 80px; }
   .container { padding: 0 20px; }
   .detail-info-grid { grid-template-columns: 1fr; }
   .form-grid-2 { grid-template-columns: 1fr; }
+  .ticket-type-row { grid-template-columns: 1fr; }
 
   .admin-layout { flex-direction: column; }
   .admin-sidebar {

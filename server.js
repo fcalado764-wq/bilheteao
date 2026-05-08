@@ -18,10 +18,16 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const PORT     = process.env.PORT || 3000;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || `http://localhost:${PORT}`;
 const STORAGE_BUCKET = 'bilheteao';
+const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID;
+const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
+const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
+const EMAILJS_REGISTER_TEMPLATE_ID = process.env.EMAILJS_REGISTER_TEMPLATE_ID;
+const EMAILJS_TICKET_TEMPLATE_ID = process.env.EMAILJS_TICKET_TEMPLATE_ID;
 
 console.log('SUPABASE_URL:', SUPABASE_URL ? 'OK' : 'EM FALTA');
 console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'OK' : 'EM FALTA');
 console.log('SUPABASE_SERVICE_KEY:', SUPABASE_SERVICE_KEY ? 'OK' : 'EM FALTA');
+console.log('EMAILJS:', EMAILJS_SERVICE_ID && EMAILJS_PUBLIC_KEY ? 'OK' : 'OPCIONAL/EM FALTA');
 
 const supabaseAdmin = createClient(
   SUPABASE_URL,
@@ -81,6 +87,81 @@ async function uploadPDF(buffer, filename) {
   } catch(e) { console.error('PDF upload erro:', e.message); return null; }
 }
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email || '').trim());
+}
+
+async function sendEmailJS(templateId, templateParams) {
+  if (!EMAILJS_SERVICE_ID || !EMAILJS_PUBLIC_KEY || !templateId) {
+    console.log('EmailJS ignorado: configuracao incompleta.');
+    return { skipped: true };
+  }
+
+  try {
+    const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: templateId,
+        user_id: EMAILJS_PUBLIC_KEY,
+        accessToken: EMAILJS_PRIVATE_KEY || undefined,
+        template_params: templateParams
+      })
+    });
+
+    const text = await response.text();
+    if (!response.ok) throw new Error(text || `HTTP ${response.status}`);
+    return { success: true, text };
+  } catch (error) {
+    console.error('Erro EmailJS:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+function normalizeTicketTypes(rawTypes, fallbackPrice, fallbackSeats) {
+  let parsed = rawTypes;
+  if (typeof rawTypes === 'string') {
+    try { parsed = JSON.parse(rawTypes); } catch { parsed = null; }
+  }
+
+  const source = Array.isArray(parsed) && parsed.length ? parsed : [{
+    id: 'normal',
+    name: 'Normal',
+    price: fallbackPrice,
+    totalSeats: fallbackSeats,
+    soldSeats: 0
+  }];
+
+  return source
+    .map((type, index) => {
+      const name = String(type.name || '').trim();
+      const price = Number(type.price);
+      const totalSeats = parseInt(type.totalSeats ?? type.total_seats ?? type.seats, 10);
+      const soldSeats = parseInt(type.soldSeats ?? type.sold_seats ?? 0, 10) || 0;
+      const safeName = name || `Area ${index + 1}`;
+      return {
+        id: String(type.id || safeName.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, '') || `area-${index + 1}`,
+        name: safeName,
+        price: Number.isFinite(price) && price >= 0 ? price : 0,
+        totalSeats: Number.isFinite(totalSeats) && totalSeats > 0 ? totalSeats : 1,
+        soldSeats: Math.max(0, soldSeats)
+      };
+    })
+    .filter((type) => type.totalSeats > 0);
+}
+
+function summarizeTicketTypes(ticketTypes) {
+  const totalSeats = ticketTypes.reduce((sum, type) => sum + type.totalSeats, 0);
+  const soldSeats = ticketTypes.reduce((sum, type) => sum + type.soldSeats, 0);
+  const minPrice = ticketTypes.reduce((min, type) => Math.min(min, type.price), Number.POSITIVE_INFINITY);
+  return {
+    totalSeats,
+    soldSeats,
+    price: Number.isFinite(minPrice) ? minPrice : 0
+  };
+}
+
 // ------------------------------------------------------------
 // GERAÇÃO DE PDF A5 — retorna Buffer (sem disco)
 // ------------------------------------------------------------
@@ -111,7 +192,7 @@ async function generateTicketPDF(data) {
     df('Local',     data.event.location,  20,       iY+45);
     df('Código',    data.ticketCode,      W/2+10,   iY+45);
     df('Titular',   data.customerName,    20,       iY+90);
-    df('Quantidade',`${data.quantity} bilhete(s)`, W/2+10, iY+90);
+    df('Area',      data.ticketType || 'Normal', W/2+10, iY+90);
 
     const sY = iY+145;
     doc.moveTo(0,sY).lineTo(W,sY).strokeColor('#333355').lineWidth(1.5).dash(6,{space:4}).stroke();
@@ -124,7 +205,7 @@ async function generateTicketPDF(data) {
     doc.roundedRect(qX-8, qY-8, qS+16, qS+16, 8).fill('#ffffff');
     doc.image(Buffer.from(data.qrCodeDataURL.replace(/^data:image\/png;base64,/,''),'base64'), qX, qY, {width:qS,height:qS});
     doc.fontSize(12).fillColor('#e94560').font('Helvetica-Bold')
-       .text((data.event.price*data.quantity).toLocaleString('pt-AO')+' AOA', 20, qY+qS+18, {align:'center',width:W-40});
+       .text(((data.ticketPrice ?? data.event.price)*data.quantity).toLocaleString('pt-AO')+' AOA', 20, qY+qS+18, {align:'center',width:W-40});
     doc.fontSize(7).fillColor('#555577').font('Helvetica')
        .text('Apresente este QR Code na entrada do evento', 20, qY+qS+34, {align:'center',width:W-40});
     doc.rect(0,H-28,W,32).fill('#1a1a2e');
@@ -160,12 +241,17 @@ async function requireAdminAuth(req, res, next) {
 }
 
 function withExtras(e) {
+  const ticketTypes = normalizeTicketTypes(e.ticket_types, e.price, e.total_seats);
+  const summary = summarizeTicketTypes(ticketTypes);
   return {
     ...e,
-    availableSeats: e.total_seats - e.sold_seats,
-    soldOut:        e.sold_seats >= e.total_seats,
-    totalSeats:     e.total_seats,
-    soldSeats:      e.sold_seats,
+    price:          summary.price,
+    availableSeats: summary.totalSeats - summary.soldSeats,
+    soldOut:        summary.soldSeats >= summary.totalSeats,
+    totalSeats:     summary.totalSeats,
+    soldSeats:      summary.soldSeats,
+    ticketTypes,
+    ticket_types:   ticketTypes,
     submittedByName: e.submitted_by_name,
     coverUrl:  e.cover  || null,
     posterUrl: e.poster || null
@@ -182,6 +268,7 @@ function saleWithExtras(s) {
     eventName: s.event_name,
     customerName: s.customer_name,
     customerEmail: s.customer_email,
+    ticketType: s.ticket_type || 'Normal',
     totalPrice: parseFloat(s.total_price) || 0,
     quantity: parseInt(s.quantity, 10) || 1
   };
@@ -220,20 +307,31 @@ app.get('/api/health', async (req, res) => {
 // ------------------------------------------------------------
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
+  const cleanEmail = String(email || '').trim().toLowerCase();
   if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Preencha todos os campos.' });
+  if (!isValidEmail(cleanEmail)) return res.status(400).json({ success: false, message: 'Informe um e-mail valido.' });
   if (password.length < 6) return res.status(400).json({ success: false, message: 'Senha deve ter pelo menos 6 caracteres.' });
-  const { data: existing } = await supabaseAdmin.from('users').select('id').eq('email', email).single();
+  const { data: existing } = await supabaseAdmin.from('users').select('id').eq('email', cleanEmail).single();
   if (existing) return res.status(400).json({ success: false, message: 'E-mail já registado.' });
-  const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email, password, role: 'user' }).select().single();
+  const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email: cleanEmail, password, role: 'user' }).select().single();
   if (error) return res.status(500).json({ success: false, message: 'Erro ao criar conta: ' + error.message });
   const token = uuidv4();
   await supabaseAdmin.from('sessions').insert({ token, user_id: user.id, user_name: user.name, user_email: user.email, user_role: user.role });
+  await sendEmailJS(EMAILJS_REGISTER_TEMPLATE_ID, {
+    to_email: user.email,
+    to_name: user.name,
+    user_name: user.name,
+    user_email: user.email,
+    site_url: SITE_URL,
+    created_at: new Date().toLocaleString('pt-PT')
+  });
   res.json({ success: true, token, user: { name: user.name, email: user.email } });
 });
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-  const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('email', email).eq('password', password).single();
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('email', cleanEmail).eq('password', password).single();
   if (error || !user) return res.status(401).json({ success: false, message: 'E-mail ou senha incorrectos.' });
   const token = uuidv4();
   await supabaseAdmin.from('sessions').insert({ token, user_id: user.id, user_name: user.name, user_email: user.email, user_role: user.role });
@@ -353,14 +451,19 @@ app.put('/api/admin/events/:id/reject', requireAdminAuth, async (req, res) => {
 app.post('/api/admin/events', requireAdminAuth, uploadEvent.fields([
   { name: 'cover', maxCount: 1 }, { name: 'poster', maxCount: 1 }
 ]), async (req, res) => {
-  const { name, date, time, location, price, category, totalSeats, emoji, description } = req.body;
+  const { name, date, time, location, price, category, customCategory, totalSeats, emoji, description } = req.body;
   if (!name || !date || !time || !location || !price || !totalSeats)
     return res.status(400).json({ success: false, message: 'Preencha todos os campos obrigatórios.' });
+  const ticketTypes = normalizeTicketTypes(req.body.ticketTypes, price, totalSeats);
+  const summary = summarizeTicketTypes(ticketTypes);
+  const finalCategory = category === 'Personalizar' ? String(customCategory || '').trim() : category;
+  if (category === 'Personalizar' && !finalCategory)
+    return res.status(400).json({ success: false, message: 'Informe a categoria personalizada.' });
   const coverUrl  = await uploadImage(req.files?.cover?.[0],  'covers');
   const posterUrl = await uploadImage(req.files?.poster?.[0], 'posters');
   const { data, error } = await supabaseAdmin.from('events').insert({
-    name, date, time, location, price: parseFloat(price), category: category||'Geral',
-    total_seats: parseInt(totalSeats), sold_seats: 0, emoji: emoji||'🎟️',
+    name, date, time, location, price: summary.price, category: finalCategory||'Geral',
+    total_seats: summary.totalSeats, sold_seats: summary.soldSeats, ticket_types: ticketTypes, emoji: emoji||'B',
     description: description||'', cover: coverUrl, poster: posterUrl,
     status: 'approved', submitted_by_name: 'Administrador'
   }).select().single();
@@ -395,14 +498,19 @@ app.get('/api/events/:id', async (req, res) => {
 app.post('/api/events/submit', requireAuth, uploadEvent.fields([
   { name: 'cover', maxCount: 1 }, { name: 'poster', maxCount: 1 }
 ]), async (req, res) => {
-  const { name, date, time, location, price, category, totalSeats, emoji, description } = req.body;
+  const { name, date, time, location, price, category, customCategory, totalSeats, emoji, description } = req.body;
   if (!name || !date || !time || !location || !price || !totalSeats)
     return res.status(400).json({ success: false, message: 'Preencha todos os campos obrigatórios.' });
+  const ticketTypes = normalizeTicketTypes(req.body.ticketTypes, price, totalSeats);
+  const summary = summarizeTicketTypes(ticketTypes);
+  const finalCategory = category === 'Personalizar' ? String(customCategory || '').trim() : category;
+  if (category === 'Personalizar' && !finalCategory)
+    return res.status(400).json({ success: false, message: 'Informe a categoria personalizada.' });
   const coverUrl  = await uploadImage(req.files?.cover?.[0],  'covers');
   const posterUrl = await uploadImage(req.files?.poster?.[0], 'posters');
   const { error } = await supabaseAdmin.from('events').insert({
-    name, date, time, location, price: parseFloat(price), category: category||'Geral',
-    total_seats: parseInt(totalSeats), sold_seats: 0, emoji: emoji||'🎟️',
+    name, date, time, location, price: summary.price, category: finalCategory||'Geral',
+    total_seats: summary.totalSeats, sold_seats: summary.soldSeats, ticket_types: ticketTypes, emoji: emoji||'B',
     description: description||'', cover: coverUrl, poster: posterUrl,
     status: 'pending', submitted_by: req.user.id, submitted_by_name: req.user.name
   });
@@ -427,18 +535,22 @@ app.get('/api/my/tickets', requireAuth, async (req, res) => {
 // API COMPRA — PDF em memória + Supabase Storage
 // ------------------------------------------------------------
 app.post('/api/purchase', requireAuth, async (req, res) => {
-  const { eventId, quantity } = req.body;
+  const { eventId, quantity, ticketTypeId } = req.body;
   const qty = Math.max(1, parseInt(quantity, 10) || 1);
 
   const { data: event, error: evErr } = await supabaseAdmin
     .from('events').select('*').eq('id', eventId).eq('status', 'approved').single();
   if (evErr || !event) return res.status(404).json({ success: false, message: 'Evento não encontrado.' });
-  if (event.sold_seats + qty > event.total_seats)
+  const ticketTypes = normalizeTicketTypes(event.ticket_types, event.price, event.total_seats);
+  const selectedType = ticketTypes.find((type) => type.id === ticketTypeId) || ticketTypes[0];
+  if (!selectedType) return res.status(400).json({ success: false, message: 'Tipo de bilhete indisponivel.' });
+  if (selectedType.soldSeats + qty > selectedType.totalSeats)
     return res.status(400).json({ success: false, message: 'Lugares insuficientes.' });
 
   const purchaseDate = new Date();
   const tickets = [];
   const saleRows = [];
+  const emailTickets = [];
 
   try {
     for (let i = 0; i < qty; i++) {
@@ -453,33 +565,51 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
       const pdfBuffer = await generateTicketPDF({
         ticketCode, event,
         customerName: req.user.name, customerEmail: req.user.email,
-        quantity: 1, purchaseDate, qrCodeDataURL
+        quantity: 1, purchaseDate, qrCodeDataURL,
+        ticketType: selectedType.name,
+        ticketPrice: selectedType.price
       });
       const pdfFileName = `bilhete-${ticketCode}.pdf`;
       const pdfUrl = await uploadPDF(pdfBuffer, pdfFileName);
-      if (!pdfUrl) throw new Error('Não foi possível guardar o PDF no Supabase Storage.');
-
-      tickets.push({
-        ticketCode,
-        pdfUrl,
-        price: parseFloat(event.price) || 0,
-        validateUrl
-      });
+      emailTickets.push({ ticketCode, pdfUrl, pdfFileName, pdfData: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` });
 
       saleRows.push({
         ticket_code: ticketCode, event_id: eventId,
         event_name: event.name, customer_name: req.user.name,
         customer_email: req.user.email, user_id: req.user.id,
-        quantity: 1, total_price: event.price,
+        ticket_type: selectedType.name,
+        quantity: 1, total_price: selectedType.price,
         pdf_file: pdfUrl, validated: false
       });
     }
 
-    // Actualizar lugares vendidos
-    await supabaseAdmin.from('events').update({ sold_seats: event.sold_seats + qty }).eq('id', eventId);
+    selectedType.soldSeats += qty;
+    const ticketSummary = summarizeTicketTypes(ticketTypes);
+    await supabaseAdmin.from('events').update({
+      sold_seats: ticketSummary.soldSeats,
+      ticket_types: ticketTypes
+    }).eq('id', eventId);
 
     const { error: saleErr } = await supabaseAdmin.from('sales').insert(saleRows);
     if (saleErr) throw saleErr;
+
+    for (const [index, ticket] of emailTickets.entries()) {
+      if (index > 0) await new Promise((resolve) => setTimeout(resolve, 1100));
+      await sendEmailJS(EMAILJS_TICKET_TEMPLATE_ID, {
+        to_email: req.user.email,
+        to_name: req.user.name,
+        user_name: req.user.name,
+        event_name: event.name,
+        ticket_code: ticket.ticketCode,
+        ticket_type: selectedType.name,
+        ticket_price: selectedType.price,
+        ticket_url: ticket.pdfUrl,
+        ticket_pdf: ticket.pdfData,
+        ticket_filename: ticket.pdfFileName,
+        purchase_date: purchaseDate.toLocaleString('pt-PT'),
+        site_url: SITE_URL
+      });
+    }
 
     res.json({
       success: true, message: qty > 1 ? 'Bilhetes gerados!' : 'Bilhete gerado!',
@@ -489,7 +619,8 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
         pdfUrl: tickets[0]?.pdfUrl,
         eventName: event.name,
         customerName: req.user.name,
-        totalPrice: (parseFloat(event.price) || 0) * qty,
+        ticketType: selectedType.name,
+        totalPrice: selectedType.price * qty,
         quantity: qty
       }
     });

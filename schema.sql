@@ -107,3 +107,25 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 -- (opcional — execute manualmente ou crie um cron job no Supabase)
 -- DELETE FROM sessions       WHERE expires_at < NOW();
 -- DELETE FROM admin_sessions WHERE expires_at < NOW();
+
+-- ============================================================
+-- Atualizacoes: EmailJS + areas/tipos de bilhete
+-- Execute tambem estas linhas em projetos que ja tinham o schema antigo.
+-- ============================================================
+ALTER TABLE events
+  ADD COLUMN IF NOT EXISTS ticket_types JSONB;
+
+ALTER TABLE sales
+  ADD COLUMN IF NOT EXISTS ticket_type TEXT DEFAULT 'Normal';
+
+UPDATE events
+SET ticket_types = jsonb_build_array(
+  jsonb_build_object(
+    'id', 'normal',
+    'name', 'Normal',
+    'price', price,
+    'totalSeats', total_seats,
+    'soldSeats', sold_seats
+  )
+)
+WHERE ticket_types IS NULL;
