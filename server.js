@@ -174,17 +174,26 @@ async function generateTicketPDF(data) {
     doc.on('error', reject);
 
     const W = doc.page.width, H = doc.page.height;
-    doc.rect(0,0,W,H).fill('#0f0f1a');
-    doc.rect(0,0,W,160).fill('#1a1a2e');
-    doc.moveTo(0,160).lineTo(W,160).strokeColor('#e94560').lineWidth(3).stroke();
-    doc.fontSize(36).fillColor('#ffffff').text(data.event.emoji||'🎟️', W/2-22, 20, {align:'center',width:44});
-    doc.fontSize(15).fillColor('#ffffff').font('Helvetica-Bold').text(data.event.name.toUpperCase(), 20, 73, {align:'center',width:W-40});
-    doc.fontSize(8).fillColor('#e94560').font('Helvetica').text(`[ ${data.event.category} ]`, 20, 127, {align:'center',width:W-40});
+    // Cores baseadas no tema do site
+    const bgMain = '#080810'; // --bg
+    const bgSecondary = '#0f0f1a'; // --bg-secondary
+    const bgCard = '#1a1a2e'; // --bg-card
+    const border = '#333355'; // --border
+    const textPrimary = '#ffffff'; // --text-primary
+    const textMuted = '#8888aa'; // --text-muted
+    const accent = '#e94560'; // --accent
+
+    doc.rect(0,0,W,H).fill(bgMain);
+    doc.rect(0,0,W,160).fill(bgCard);
+    doc.moveTo(0,160).lineTo(W,160).strokeColor(accent).lineWidth(3).stroke();
+    doc.fontSize(36).fillColor(textPrimary).text(data.event.emoji||'🎟️', W/2-22, 20, {align:'center',width:44});
+    doc.fontSize(15).fillColor(textPrimary).font('Helvetica-Bold').text(data.event.name.toUpperCase(), 20, 73, {align:'center',width:W-40});
+    doc.fontSize(8).fillColor(accent).font('Helvetica').text(`[ ${data.event.category} ]`, 20, 127, {align:'center',width:W-40});
 
     const iY = 175;
     const df = (label, value, x, y) => {
-      doc.fontSize(7).fillColor('#8888aa').font('Helvetica').text(label.toUpperCase(), x, y);
-      doc.fontSize(9.5).fillColor('#ffffff').font('Helvetica-Bold').text(String(value), x, y+11);
+      doc.fontSize(7).fillColor(textMuted).font('Helvetica').text(label.toUpperCase(), x, y);
+      doc.fontSize(9.5).fillColor(textPrimary).font('Helvetica-Bold').text(String(value), x, y+11);
     };
     const ds = new Date(data.event.date).toLocaleDateString('pt-PT', {day:'2-digit',month:'long',year:'numeric'});
     df('Data',      ds,                   20,       iY);
@@ -195,21 +204,21 @@ async function generateTicketPDF(data) {
     df('Area',      data.ticketType || 'Normal', W/2+10, iY+90);
 
     const sY = iY+145;
-    doc.moveTo(0,sY).lineTo(W,sY).strokeColor('#333355').lineWidth(1.5).dash(6,{space:4}).stroke();
+    doc.moveTo(0,sY).lineTo(W,sY).strokeColor(border).lineWidth(1.5).dash(6,{space:4}).stroke();
     doc.undash();
-    doc.circle(0,sY,10).fill('#0f0f1a');
-    doc.circle(W,sY,10).fill('#0f0f1a');
-    doc.fontSize(7).fillColor('#555577').text('✂  DESTAQUE AQUI', 20, sY-7, {align:'center',width:W-40});
+    doc.circle(0,sY,10).fill(bgMain);
+    doc.circle(W,sY,10).fill(bgMain);
+    doc.fontSize(7).fillColor(textMuted).text('✂  DESTAQUE AQUI', 20, sY-7, {align:'center',width:W-40});
 
     const qY=sY+20, qS=118, qX=(W-qS)/2;
-    doc.roundedRect(qX-8, qY-8, qS+16, qS+16, 8).fill('#ffffff');
+    doc.roundedRect(qX-8, qY-8, qS+16, qS+16, 8).fill(textPrimary);
     doc.image(Buffer.from(data.qrCodeDataURL.replace(/^data:image\/png;base64,/,''),'base64'), qX, qY, {width:qS,height:qS});
-    doc.fontSize(12).fillColor('#e94560').font('Helvetica-Bold')
+    doc.fontSize(12).fillColor(accent).font('Helvetica-Bold')
        .text(((data.ticketPrice ?? data.event.price)*data.quantity).toLocaleString('pt-AO')+' AOA', 20, qY+qS+18, {align:'center',width:W-40});
-    doc.fontSize(7).fillColor('#555577').font('Helvetica')
+    doc.fontSize(7).fillColor(textMuted).font('Helvetica')
        .text('Apresente este QR Code na entrada do evento', 20, qY+qS+34, {align:'center',width:W-40});
-    doc.rect(0,H-28,W,32).fill('#1a1a2e');
-    doc.fontSize(6).fillColor('#555577')
+    doc.rect(0,H-28,W,32).fill(bgCard);
+    doc.fontSize(6).fillColor(textMuted)
        .text(`Comprado em ${new Date(data.purchaseDate).toLocaleString('pt-PT')}  •  BilheteAO`, 10, H-18, {align:'center',width:W-20});
     doc.end();
   });
@@ -559,7 +568,7 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
 
       const qrCodeDataURL = await QRCode.toDataURL(validateUrl, {
         errorCorrectionLevel: 'H', margin: 1,
-        color: { dark: '#1a1a2e', light: '#FFFFFF' }, width: 200
+        color: { dark: '#e94560', light: '#080810' }, width: 200
       });
 
       const pdfBuffer = await generateTicketPDF({
@@ -571,6 +580,7 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
       });
       const pdfFileName = `bilhete-${ticketCode}.pdf`;
       const pdfUrl = await uploadPDF(pdfBuffer, pdfFileName);
+      console.log('PDF URL gerado:', pdfUrl, 'para ticket:', ticketCode);
       emailTickets.push({ ticketCode, pdfUrl, pdfFileName, pdfData: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` });
 
       saleRows.push({
