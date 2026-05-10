@@ -245,8 +245,20 @@ async function requireAdminAuth(req, res, next) {
     .from('admin_sessions').select('*').eq('token', token)
     .gt('expires_at', new Date().toISOString()).single();
   if (error || !data) return res.status(401).json({ success: false, message: 'Sessão admin expirada.' });
-  req.admin = { username: data.username };
+  req.admin = {
+    id: data.admin_id,
+    username: data.username,
+    role: data.role || 'superadmin',
+    permissions: data.permissions || { manage_events: true, manage_users: true, manage_admins: true }
+  };
   next();
+}
+
+function requireAdminPermission(permission) {
+  return (req, res, next) => {
+    if (req.admin.role === 'superadmin' || req.admin.permissions?.[permission]) return next();
+    return res.status(403).json({ success: false, message: 'Privilegios insuficientes.' });
+  };
 }
 
 function withExtras(e) {
@@ -382,13 +394,19 @@ app.put('/api/auth/password', requireAuth, async (req, res) => {
 // ------------------------------------------------------------
 app.post('/api/admin/login', async (req, res) => {
   const { username, password } = req.body;
-  const { data: creds, error } = await supabaseAdmin.from('admin_credentials').select('*').eq('id', 1).single();
-  if (error) return res.status(500).json({ success: false, message: 'Erro BD: ' + error.message });
-  if (!creds || username !== creds.username || password !== creds.password)
-    return res.status(401).json({ success: false, message: 'Credenciais inválidas.' });
+  const cleanUsername = String(username || '').trim();
+  const { data: admin, error } = await supabaseAdmin.from('admin_credentials')
+    .select('*').eq('username', cleanUsername).eq('password', password).single();
+  if (error || !admin) return res.status(401).json({ success: false, message: 'Credenciais inválidas.' });
   const token = uuidv4();
-  await supabaseAdmin.from('admin_sessions').insert({ token, username });
-  res.json({ success: true, token });
+  await supabaseAdmin.from('admin_sessions').insert({
+    token,
+    admin_id: admin.id,
+    username: admin.username,
+    role: admin.role || 'superadmin',
+    permissions: admin.permissions || { manage_events: true, manage_users: true, manage_admins: true }
+  });
+  res.json({ success: true, token, admin: { username: admin.username, role: admin.role || 'superadmin', permissions: admin.permissions || {} } });
 });
 
 app.post('/api/admin/logout', requireAdminAuth, async (req, res) => {
@@ -398,15 +416,56 @@ app.post('/api/admin/logout', requireAdminAuth, async (req, res) => {
 
 app.put('/api/admin/credentials', requireAdminAuth, async (req, res) => {
   const { username, currentPassword, newPassword } = req.body;
-  const { data: creds } = await supabaseAdmin.from('admin_credentials').select('*').eq('id', 1).single();
+  const { data: creds } = await supabaseAdmin.from('admin_credentials').select('*').eq('username', req.admin.username).single();
+  if (!creds) return res.status(404).json({ success: false, message: 'Administrador não encontrado.' });
   if (currentPassword !== creds.password) return res.status(400).json({ success: false, message: 'Senha actual incorrecta.' });
   if (newPassword && newPassword.length < 6) return res.status(400).json({ success: false, message: 'Nova senha deve ter pelo menos 6 caracteres.' });
   const updates = {};
-  if (username) updates.username = username;
+  if (username) updates.username = String(username).trim();
   if (newPassword) updates.password = newPassword;
-  await supabaseAdmin.from('admin_credentials').update(updates).eq('id', 1);
+  await supabaseAdmin.from('admin_credentials').update(updates).eq('id', creds.id);
   await supabaseAdmin.from('admin_sessions').delete().neq('token', '');
   res.json({ success: true, message: 'Credenciais actualizadas. Faça login novamente.' });
+});
+
+app.get('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_admins'), async (req, res) => {
+  const { data, error } = await supabaseAdmin.from('admin_credentials').select('id,username,role,permissions,created_at').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ success: false, message: error.message });
+  res.json({ success: true, data: (data||[]).map(admin => ({
+    id: admin.id,
+    username: admin.username,
+    role: admin.role || 'admin',
+    permissions: admin.permissions || {},
+    createdAt: admin.created_at
+  })) });
+});
+
+app.post('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_admins'), async (req, res) => {
+  const { username, password, role, permissions } = req.body;
+  if (!username || !password) return res.status(400).json({ success: false, message: 'Username e senha são obrigatórios.' });
+  const cleanUsername = String(username).trim();
+  const { data: existingAdmin } = await supabaseAdmin.from('admin_credentials').select('id').eq('username', cleanUsername).single();
+  if (existingAdmin) return res.status(400).json({ success: false, message: 'Administrador já existente.' });
+  const adminRole = role || 'admin';
+  const adminPermissions = permissions || { manage_events: true, manage_users: true, manage_admins: true };
+  const { data: newAdmin, error } = await supabaseAdmin.from('admin_credentials')
+    .insert({ username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
+    .select('id,username,role,permissions,created_at').single();
+  if (error) return res.status(500).json({ success: false, message: error.message });
+  res.json({ success: true, data: { id: newAdmin.id, username: newAdmin.username, role: newAdmin.role, permissions: newAdmin.permissions, createdAt: newAdmin.created_at } });
+});
+
+app.put('/api/admin/admins/:id', requireAdminAuth, requireAdminPermission('manage_admins'), async (req, res) => {
+  const { username, password, role, permissions } = req.body;
+  const updates = {};
+  if (username) updates.username = String(username).trim();
+  if (password) updates.password = password;
+  if (role) updates.role = role;
+  if (permissions) updates.permissions = permissions;
+  if (Object.keys(updates).length === 0) return res.status(400).json({ success: false, message: 'Nenhum dado para atualizar.' });
+  const { error } = await supabaseAdmin.from('admin_credentials').update(updates).eq('id', req.params.id);
+  if (error) return res.status(500).json({ success: false, message: error.message });
+  res.json({ success: true, message: 'Administrador atualizado.' });
 });
 
 // ------------------------------------------------------------
@@ -581,6 +640,14 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
       const pdfFileName = `bilhete-${ticketCode}.pdf`;
       const pdfUrl = await uploadPDF(pdfBuffer, pdfFileName);
       console.log('PDF URL gerado:', pdfUrl, 'para ticket:', ticketCode);
+      tickets.push({
+        ticketCode,
+        pdfUrl,
+        ticketType: selectedType.name,
+        price: selectedType.price,
+        purchaseDate: purchaseDate.toISOString(),
+        validateUrl
+      });
       emailTickets.push({ ticketCode, pdfUrl, pdfFileName, pdfData: `data:application/pdf;base64,${pdfBuffer.toString('base64')}` });
 
       saleRows.push({

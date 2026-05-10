@@ -150,6 +150,36 @@
         </div>
         <button class="btn-purchase" onclick="saveCredentials()">💾 Guardar Alterações</button>
       </div>
+
+      <div id="adminManagementSection" class="purchase-form-box" style="max-width:520px;display:none;margin-top:30px">
+        <h3 style="margin-bottom:20px;color:var(--accent)">Gestão de Administradores</h3>
+        <div id="adminMgmtError" class="form-error" style="display:none"></div>
+        <div id="adminMgmtSuccess" class="form-success" style="display:none"></div>
+        <div class="form-group"><label class="form-label">Nome de Utilizador</label><input type="text" id="newAdminUsername" class="form-input" placeholder="admin2"></div>
+        <div class="form-group"><label class="form-label">Senha</label><input type="password" id="newAdminPassword" class="form-input" placeholder="••••••••"></div>
+        <div class="form-group"><label class="form-label">Função</label>
+          <select id="newAdminRole" class="form-input"><option value="admin">Admin</option><option value="superadmin">Superadmin</option></select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">Permissões</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="permManageEvents" checked> Gerir Eventos</label>
+            <label><input type="checkbox" id="permManageUsers" checked> Gerir Utilizadores</label>
+            <label><input type="checkbox" id="permManageAdmins" checked> Gerir Administradores</label>
+          </div>
+        </div>
+        <button class="btn-purchase" onclick="createAdmin()">➕ Criar Administrador</button>
+
+        <div style="margin-top:30px">
+          <h4 style="margin-bottom:15px;color:#fff">Administradores Existentes</h4>
+          <div class="admin-table-wrap">
+            <table class="admin-table" style="margin-bottom:0">
+              <thead><tr><th>Username</th><th>Função</th><th>Permissões</th><th>Criado</th></tr></thead>
+              <tbody id="adminsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -172,7 +202,7 @@
     document.getElementById(`tab-${name}`).style.display = 'block';
     if (!btn) btn = Array.from(document.querySelectorAll('.sidebar-link')).find(l => l.getAttribute('onclick')?.includes(`'${name}'`));
     if (btn) btn.classList.add('active');
-    const loaders = { overview: loadStats, events: loadEvents, pending: loadPending, sales: loadSales, users: loadUsers };
+    const loaders = { overview: loadStats, events: loadEvents, pending: loadPending, sales: loadSales, users: loadUsers, settings: loadSettings };
     if (loaders[name]) loaders[name]();
   }
 
@@ -432,6 +462,80 @@
       <td><span class="status-badge ${u.role === 'admin' ? 'status-valid' : 'status-used'}">${u.role === 'admin' ? '🔐 Admin' : '👤 User'}</span></td>
       <td>${u.createdAt || u.created_at ? new Date(u.createdAt || u.created_at).toLocaleDateString('pt-PT') : '—'}</td>
     </tr>`).join('');
+  }
+
+  async function loadSettings() {
+    await loadAdmins();
+  }
+
+  async function loadAdmins() {
+    const section = document.getElementById('adminManagementSection');
+    const errorBox = document.getElementById('adminMgmtError');
+    const successBox = document.getElementById('adminMgmtSuccess');
+    section.style.display = 'none';
+    errorBox.style.display = 'none';
+    successBox.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/admin/admins', { headers: H });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        if (res.status === 403) return;
+        throw new Error(json.message || 'Erro ao carregar administradores.');
+      }
+      const json = await res.json();
+      section.style.display = 'block';
+      document.getElementById('adminsTableBody').innerHTML = json.data.length
+        ? json.data.map(admin => `<tr>
+            <td>${admin.username}</td>
+            <td>${admin.role}</td>
+            <td>${Object.entries(admin.permissions || {}).filter(([_, value]) => value).map(([key]) => key.replace('manage_', 'Gerir ').replace(/([A-Z])/g, ' $1')).join(', ')}</td>
+            <td>${admin.createdAt ? new Date(admin.createdAt).toLocaleDateString('pt-PT') : '—'}</td>
+          </tr>`).join('')
+        : '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted)">Nenhum administrador registado.</td></tr>';
+    } catch (err) {
+      console.error(err);
+      errorBox.textContent = err.message;
+      errorBox.style.display = 'block';
+    }
+  }
+
+  async function createAdmin() {
+    const errBox = document.getElementById('adminMgmtError');
+    const sucBox = document.getElementById('adminMgmtSuccess');
+    errBox.style.display = 'none';
+    sucBox.style.display = 'none';
+    const username = document.getElementById('newAdminUsername').value.trim();
+    const password = document.getElementById('newAdminPassword').value;
+    const role = document.getElementById('newAdminRole').value;
+    const permissions = {
+      manage_events: document.getElementById('permManageEvents').checked,
+      manage_users: document.getElementById('permManageUsers').checked,
+      manage_admins: document.getElementById('permManageAdmins').checked
+    };
+    if (!username || !password) {
+      errBox.textContent = 'Informe nome de utilizador e senha para o novo admin.';
+      errBox.style.display = 'block';
+      return;
+    }
+    const res = await fetch('/api/admin/admins', {
+      method: 'POST', headers: H, body: JSON.stringify({ username, password, role, permissions })
+    });
+    const json = await res.json();
+    if (json.success) {
+      sucBox.textContent = 'Administrador criado com sucesso.';
+      sucBox.style.display = 'block';
+      document.getElementById('newAdminUsername').value = '';
+      document.getElementById('newAdminPassword').value = '';
+      document.getElementById('newAdminRole').value = 'admin';
+      document.getElementById('permManageEvents').checked = true;
+      document.getElementById('permManageUsers').checked = true;
+      document.getElementById('permManageAdmins').checked = true;
+      await loadAdmins();
+    } else {
+      errBox.textContent = json.message;
+      errBox.style.display = 'block';
+    }
   }
 
   // VALIDAÇÃO

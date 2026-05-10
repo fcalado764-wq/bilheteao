@@ -48,26 +48,31 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '7 days'
 );
 
--- ── Tabela: sessões de administrador ──────────────────────
-CREATE TABLE IF NOT EXISTS admin_sessions (
-  token       TEXT PRIMARY KEY,
-  username    TEXT NOT NULL,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '1 day'
-);
-
 -- ── Tabela: credenciais de administrador ──────────────────
 CREATE TABLE IF NOT EXISTS admin_credentials (
-  id        INTEGER PRIMARY KEY DEFAULT 1,
-  username  TEXT NOT NULL DEFAULT 'admin',
-  password  TEXT NOT NULL DEFAULT 'admin123',
-  CONSTRAINT single_row CHECK (id = 1)
+  id          SERIAL PRIMARY KEY,
+  username    TEXT NOT NULL UNIQUE,
+  password    TEXT NOT NULL,
+  role        TEXT NOT NULL DEFAULT 'admin',
+  permissions JSONB NOT NULL DEFAULT '{"manage_events": true, "manage_users": true, "manage_admins": true}',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Inserir credenciais padrão
-INSERT INTO admin_credentials (id, username, password)
-VALUES (1, 'admin', 'admin123')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO admin_credentials (username, password, role, permissions)
+VALUES ('admin', 'admin123', 'superadmin', '{"manage_events": true, "manage_users": true, "manage_admins": true}')
+ON CONFLICT (username) DO NOTHING;
+
+-- ── Tabela: sessões de administrador ──────────────────────
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token       TEXT PRIMARY KEY,
+  admin_id    INTEGER REFERENCES admin_credentials(id) ON DELETE CASCADE,
+  username    TEXT NOT NULL,
+  role        TEXT NOT NULL DEFAULT 'admin',
+  permissions JSONB NOT NULL DEFAULT '{"manage_events": true, "manage_users": true, "manage_admins": true}',
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '1 day'
+);
 
 -- ── Tabela: vendas / bilhetes ──────────────────────────────
 CREATE TABLE IF NOT EXISTS sales (
