@@ -206,11 +206,20 @@
     if (loaders[name]) loaders[name]();
   }
 
+  function handleAdminAuthResponse(json) {
+    if (!json || json.success === false) {
+      checkAuth();
+      return false;
+    }
+    return true;
+  }
+
   // STATS
   async function loadStats() {
     try {
       const res  = await fetch('/api/admin/stats', { headers: H });
       const json = await res.json();
+      if (!handleAdminAuthResponse(json)) return;
       const d    = json.data;
       document.getElementById('sEvents').textContent  = d.totalEvents;
       document.getElementById('sPending').textContent = d.pendingEvents;
@@ -229,6 +238,7 @@
   async function loadEvents() {
     const res  = await fetch('/api/admin/events', { headers: H });
     const json = await res.json();
+    if (!handleAdminAuthResponse(json)) return;
     document.getElementById('eventsTableBody').innerHTML = json.data
       .filter(e => e.status === 'approved')
       .map(e => `<tr>
@@ -398,6 +408,7 @@
   async function loadPending() {
     const res  = await fetch('/api/admin/events', { headers: H });
     const json = await res.json();
+    if (!handleAdminAuthResponse(json)) return;
     const pending = json.data.filter(e => e.status === 'pending');
     document.getElementById('pendingCount').textContent = `${pending.length} pendente(s)`;
     const div = document.getElementById('pendingList');
@@ -436,6 +447,7 @@
   async function loadSales() {
     const res  = await fetch('/api/admin/sales', { headers: H });
     const json = await res.json();
+    if (!handleAdminAuthResponse(json)) return;
     document.getElementById('salesCount').textContent = `${json.data.length} vendas`;
     document.getElementById('salesTableBody').innerHTML = json.data.length
       ? json.data.map(s => `<tr>
@@ -455,6 +467,7 @@
   async function loadUsers() {
     const res  = await fetch('/api/admin/users', { headers: H });
     const json = await res.json();
+    if (!handleAdminAuthResponse(json)) return;
     document.getElementById('usersCount').textContent = `${json.data.length} utilizadores`;
     document.getElementById('usersTableBody').innerHTML = json.data.map(u => `<tr>
       <td>${u.name}</td>
@@ -478,12 +491,8 @@
 
     try {
       const res = await fetch('/api/admin/admins', { headers: H });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        if (res.status === 403) return;
-        throw new Error(json.message || 'Erro ao carregar administradores.');
-      }
       const json = await res.json();
+      if (!handleAdminAuthResponse(json)) return;
       section.style.display = 'block';
       document.getElementById('adminsTableBody').innerHTML = json.data.length
         ? json.data.map(admin => `<tr>
@@ -588,6 +597,23 @@
   }
 
   function checkAuth() { localStorage.removeItem('adminToken'); window.location.href = `/admin?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`; }
+
+  // Automatic session expiry check
+  function checkSessionExpiry() {
+    fetch('/api/admin/me', { headers: H })
+      .then(res => res.json())
+      .then(json => {
+        if (!handleAdminAuthResponse(json)) {
+          // Already handled
+        }
+      })
+      .catch(() => checkAuth());
+  }
+
+  // Check on load
+  checkSessionExpiry();
+  // Check every 5 minutes
+  setInterval(checkSessionExpiry, 5 * 60 * 1000);
 
   const initialParams = new URLSearchParams(window.location.search);
   renderAdminTicketTypes();

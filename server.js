@@ -174,52 +174,68 @@ async function generateTicketPDF(data) {
     doc.on('error', reject);
 
     const W = doc.page.width, H = doc.page.height;
-    // Cores baseadas no tema do site
-    const bgMain = '#080810'; // --bg
-    const bgSecondary = '#0f0f1a'; // --bg-secondary
-    const bgCard = '#1a1a2e'; // --bg-card
-    const border = '#333355'; // --border
-    const textPrimary = '#ffffff'; // --text-primary
-    const textMuted = '#8888aa'; // --text-muted
-    const accent = '#e94560'; // --accent
+    const panel = W * 0.68;
+    const strip = W - panel;
 
-    doc.rect(0,0,W,H).fill(bgMain);
-    doc.rect(0,0,W,160).fill(bgCard);
-    doc.moveTo(0,160).lineTo(W,160).strokeColor(accent).lineWidth(3).stroke();
-    doc.fontSize(36).fillColor(textPrimary).text(data.event.emoji||'🎟️', W/2-22, 20, {align:'center',width:44});
-    doc.fontSize(15).fillColor(textPrimary).font('Helvetica-Bold').text(data.event.name.toUpperCase(), 20, 73, {align:'center',width:W-40});
-    doc.fontSize(8).fillColor(accent).font('Helvetica').text(`[ ${data.event.category} ]`, 20, 127, {align:'center',width:W-40});
+    const bgMain = '#090A16';
+    const leftBg = '#12162F';
+    const rightBg = '#0A0D1B';
+    const accent = '#6C63FF';
+    const accent2 = '#57C7FF';
+    const textPrimary = '#F4F7FF';
+    const textMuted = '#8A8FB5';
+    const border = '#2A2E4A';
 
-    const iY = 175;
-    const df = (label, value, x, y) => {
-      doc.fontSize(7).fillColor(textMuted).font('Helvetica').text(label.toUpperCase(), x, y);
-      doc.fontSize(9.5).fillColor(textPrimary).font('Helvetica-Bold').text(String(value), x, y+11);
+    doc.rect(0, 0, W, H).fill(bgMain);
+    doc.rect(0, 0, panel, H).fill(leftBg);
+    doc.rect(panel, 0, strip, H).fill(rightBg);
+
+    doc.roundedRect(18, 18, panel - 36, 68, 12).fill('#151B3D');
+    doc.fontSize(8).fillColor(accent).font('Helvetica-Bold').text('VÁLIDO', 28, 30);
+    doc.fontSize(10).fillColor(textMuted).font('Helvetica').text(data.event.category.toUpperCase(), 28, 44);
+    doc.fontSize(26).fillColor(textPrimary).font('Helvetica-Bold').text(data.event.name, 28, 62, {width: panel - 56, ellipsis: true});
+
+    const topLabelY = 108;
+    doc.fillOpacity(0.18).rect(28, topLabelY, panel - 56, 68).fill('#FFFFFF');
+    doc.fillOpacity(1);
+    doc.fontSize(9).fillColor(textMuted).font('Helvetica-Bold').text('VIP ACCESS', 38, topLabelY + 8);
+    doc.fontSize(16).fillColor(textPrimary).font('Helvetica-Bold').text(data.ticketType || 'Normal', 38, topLabelY + 30);
+
+    const infoY = topLabelY + 84;
+    const rowHeight = 34;
+    const labelStyle = {width: panel - 72};
+    const row = (label, value, y) => {
+      doc.fontSize(7).fillColor(textMuted).font('Helvetica').text(label.toUpperCase(), 28, y);
+      doc.fontSize(12).fillColor(textPrimary).font('Helvetica-Bold').text(value, 28, y + 10, labelStyle);
     };
-    const ds = new Date(data.event.date).toLocaleDateString('pt-PT', {day:'2-digit',month:'long',year:'numeric'});
-    df('Data',      ds,                   20,       iY);
-    df('Hora',      data.event.time+'h',  W/2+10,   iY);
-    df('Local',     data.event.location,  20,       iY+45);
-    df('Código',    data.ticketCode,      W/2+10,   iY+45);
-    df('Titular',   data.customerName,    20,       iY+90);
-    df('Area',      data.ticketType || 'Normal', W/2+10, iY+90);
+    const eventDate = new Date(data.event.date).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
+    row('Data', eventDate, infoY);
+    row('Hora', data.event.time + 'h', infoY + rowHeight);
+    row('Porta', data.ticketType ? `A${String(data.ticketType).charCodeAt(0) % 9 + 1}` : 'A3', infoY + rowHeight * 2);
+    row('Local', data.event.location, infoY + rowHeight * 3);
 
-    const sY = iY+145;
-    doc.moveTo(0,sY).lineTo(W,sY).strokeColor(border).lineWidth(1.5).dash(6,{space:4}).stroke();
-    doc.undash();
-    doc.circle(0,sY,10).fill(bgMain);
-    doc.circle(W,sY,10).fill(bgMain);
-    doc.fontSize(7).fillColor(textMuted).text('✂  DESTAQUE AQUI', 20, sY-7, {align:'center',width:W-40});
+    doc.moveTo(28, infoY + rowHeight * 4 + 6).lineTo(panel - 28, infoY + rowHeight * 4 + 6).strokeColor(border).lineWidth(0.8).stroke();
+    doc.fontSize(9).fillColor(textMuted).font('Helvetica').text('Titular', 28, infoY + rowHeight * 4 + 16);
+    doc.fontSize(14).fillColor(textPrimary).font('Helvetica-Bold').text(data.customerName, 28, infoY + rowHeight * 4 + 28);
 
-    const qY=sY+20, qS=118, qX=(W-qS)/2;
-    doc.roundedRect(qX-8, qY-8, qS+16, qS+16, 8).fill(textPrimary);
-    doc.image(Buffer.from(data.qrCodeDataURL.replace(/^data:image\/png;base64,/,''),'base64'), qX, qY, {width:qS,height:qS});
-    doc.fontSize(12).fillColor(accent).font('Helvetica-Bold')
-       .text(((data.ticketPrice ?? data.event.price)*data.quantity).toLocaleString('pt-AO')+' AOA', 20, qY+qS+18, {align:'center',width:W-40});
-    doc.fontSize(7).fillColor(textMuted).font('Helvetica')
-       .text('Apresente este QR Code na entrada do evento', 20, qY+qS+34, {align:'center',width:W-40});
-    doc.rect(0,H-28,W,32).fill(bgCard);
-    doc.fontSize(6).fillColor(textMuted)
-       .text(`Comprado em ${new Date(data.purchaseDate).toLocaleString('pt-PT')}  •  BilheteAO`, 10, H-18, {align:'center',width:W-20});
+    const stripPadding = 20;
+    const qrSize = strip - stripPadding * 2;
+    doc.roundedRect(panel + stripPadding - 4, stripPadding - 4, qrSize + 8, qrSize + 8, 16).fill('#1C2240');
+    doc.image(Buffer.from(data.qrCodeDataURL.replace(/^data:image\/png;base64,/, ''), 'base64'), panel + stripPadding, stripPadding, { width: qrSize, height: qrSize });
+
+    const barcodeY = stripPadding + qrSize + 18;
+    const barX = panel + stripPadding;
+    const barW = qrSize;
+    const barH = 32;
+    for (let i = 0; i < 20; i++) {
+      const w = 2 + (i % 3);
+      const x = barX + i * 10;
+      doc.rect(x, barcodeY, w, barH).fill(i % 2 === 0 ? '#6C63FF' : '#57C7FF');
+    }
+    doc.fontSize(8).fillColor(textMuted).font('Helvetica').text(data.ticketCode, barX, barcodeY + barH + 8, { width: barW, align: 'center' });
+
+    doc.fontSize(7).fillColor(textMuted).font('Helvetica').text('Apresente este bilhete digital na entrada • Não partilhe com terceiros', 28, H - 30, { width: W - 56, align: 'center' });
+
     doc.end();
   });
 }
@@ -337,7 +353,14 @@ app.post('/api/auth/register', async (req, res) => {
   const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email: cleanEmail, password, role: 'user' }).select().single();
   if (error) return res.status(500).json({ success: false, message: 'Erro ao criar conta: ' + error.message });
   const token = uuidv4();
-  await supabaseAdmin.from('sessions').insert({ token, user_id: user.id, user_name: user.name, user_email: user.email, user_role: user.role });
+  await supabaseAdmin.from('sessions').insert({
+    token,
+    user_id: user.id,
+    user_name: user.name,
+    user_email: user.email,
+    user_role: user.role,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+  });
   await sendEmailJS(EMAILJS_REGISTER_TEMPLATE_ID, {
     to_email: user.email,
     to_name: user.name,
@@ -355,7 +378,14 @@ app.post('/api/auth/login', async (req, res) => {
   const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('email', cleanEmail).eq('password', password).single();
   if (error || !user) return res.status(401).json({ success: false, message: 'E-mail ou senha incorrectos.' });
   const token = uuidv4();
-  await supabaseAdmin.from('sessions').insert({ token, user_id: user.id, user_name: user.name, user_email: user.email, user_role: user.role });
+  await supabaseAdmin.from('sessions').insert({
+    token,
+    user_id: user.id,
+    user_name: user.name,
+    user_email: user.email,
+    user_role: user.role,
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+  });
   res.json({ success: true, token, user: { name: user.name, email: user.email } });
 });
 
@@ -404,9 +434,14 @@ app.post('/api/admin/login', async (req, res) => {
     admin_id: admin.id,
     username: admin.username,
     role: admin.role || 'superadmin',
-    permissions: admin.permissions || { manage_events: true, manage_users: true, manage_admins: true }
+    permissions: admin.permissions || { manage_events: true, manage_users: true, manage_admins: true },
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
   });
   res.json({ success: true, token, admin: { username: admin.username, role: admin.role || 'superadmin', permissions: admin.permissions || {} } });
+});
+
+app.get('/api/admin/me', requireAdminAuth, (req, res) => {
+  res.json({ success: true, admin: req.admin });
 });
 
 app.post('/api/admin/logout', requireAdminAuth, async (req, res) => {

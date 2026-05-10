@@ -33,8 +33,14 @@
   <script>
     // Se já tiver sessão, redireciona
     const redirect = new URLSearchParams(window.location.search).get('redirect') || '/admin/dashboard';
-    if (localStorage.getItem('adminToken')) {
-      window.location.href = redirect;
+    const existingToken = localStorage.getItem('adminToken');
+    if (existingToken) {
+      fetch('/api/admin/me', { headers: { 'x-admin-token': existingToken } })
+        .then(res => {
+          if (res.ok) return window.location.href = redirect;
+          localStorage.removeItem('adminToken');
+        })
+        .catch(() => localStorage.removeItem('adminToken'));
     }
 
     async function doLogin() {
