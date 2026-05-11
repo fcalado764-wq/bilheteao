@@ -580,17 +580,20 @@ app.post('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_a
   if (existingAdmin) return res.status(400).json({ success: false, message: 'Administrador já existente.' });
   const adminRole = role || 'admin';
   const adminPermissions = permissions || { manage_events: true, manage_users: true, manage_admins: true };
+  const { data: lastAdmin } = await supabaseAdmin.from('admin_credentials')
+    .select('id').order('id', { ascending: false }).limit(1).single();
+  const nextId = (lastAdmin?.id || 0) + 1;
   const { data: newAdmin, error } = await supabaseAdmin.from('admin_credentials')
-    .insert({ username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
+    .insert({ id: nextId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
     .select('id,username,role,permissions').single();
   if (error) {
-    console.error('Erro ao criar administrador:', error.message || error);
+    console.error('Erro ao criar administrador (id=', nextId, '):', error.message || error);
     if (String(error.message || '').includes('admin_credentials_pkey')) {
-      const { data: lastAdmin } = await supabaseAdmin.from('admin_credentials')
+      const { data: lastAdminRetry } = await supabaseAdmin.from('admin_credentials')
         .select('id').order('id', { ascending: false }).limit(1).single();
-      const nextId = (lastAdmin?.id || 0) + 1;
+      const retryId = (lastAdminRetry?.id || 0) + 1;
       const { data: retryAdmin, error: retryError } = await supabaseAdmin.from('admin_credentials')
-        .insert({ id: nextId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
+        .insert({ id: retryId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
         .select('id,username,role,permissions').single();
       if (!retryError) {
         return res.json({ success: true, data: { id: retryAdmin.id, username: retryAdmin.username, role: retryAdmin.role, permissions: retryAdmin.permissions, createdAt: null } });
