@@ -37,6 +37,26 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+// ------------------------------------------------------------
+// SINCRONIZAR SEQUÊNCIAS DO BANCO
+// ------------------------------------------------------------
+async function syncSequences() {
+  try {
+    // Sincronizar sequência de admin_credentials
+    const { data: maxAdminId } = await supabaseAdmin
+      .from('admin_credentials')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .single();
+    const nextAdminId = (maxAdminId?.id || 0) + 1;
+    await supabaseAdmin.rpc('setval', { seq: 'admin_credentials_id_seq', value: nextAdminId, is_called: true });
+    console.log('Sequência admin_credentials sincronizada para:', nextAdminId);
+  } catch (err) {
+    console.log('Erro ao sincronizar sequências:', err.message);
+  }
+}
+
 const app = express();
 
 // Servir ficheiros estáticos (HTML, CSS, JS) — leitura apenas, funciona no Vercel
@@ -887,6 +907,11 @@ app.post('/api/admin/validate', requireAdminAuth, async (req, res) => {
   await validateTicket(req, res, req.admin.username || 'Administrador');
 });
 
-app.listen(PORT, () => {
-  console.log(`\n✅  BilheteAO v3.0 iniciado em http://localhost:${PORT}`);
+// ------------------------------------------------------------
+// INICIALIZAÇÃO
+// ------------------------------------------------------------
+syncSequences().then(() => {
+  app.listen(PORT, () => {
+    console.log(`\n✅  BilheteAO v3.0 iniciado em http://localhost:${PORT}`);
+  });
 });
