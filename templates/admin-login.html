@@ -31,14 +31,13 @@
   </div>
 
   <script>
-    // Se já tiver sessão, redireciona
     const redirect = new URLSearchParams(window.location.search).get('redirect') || '/admin/dashboard';
     const existingToken = localStorage.getItem('adminToken');
     if (existingToken) {
       fetch('/api/admin/me', { headers: { 'x-admin-token': existingToken } })
-        .then(res => {
-          if (res.ok) return window.location.href = redirect;
-          localStorage.removeItem('adminToken');
+        .then(res => res.json())
+        .then(json => {
+          if (!json.success) localStorage.removeItem('adminToken');
         })
         .catch(() => localStorage.removeItem('adminToken'));
     }

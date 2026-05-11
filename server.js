@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const QRCode      = require('qrcode');
 const PDFDocument = require('pdfkit');
 const multer      = require('multer');
+const dns         = require('dns').promises;
 const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL         = process.env.SUPABASE_URL;
@@ -90,6 +91,24 @@ async function uploadPDF(buffer, filename) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email || '').trim());
+}
+
+async function emailDomainExists(email) {
+  const domain = String(email || '').trim().split('@')[1];
+  if (!domain) return false;
+  try {
+    const mx = await dns.resolveMx(domain);
+    if (Array.isArray(mx) && mx.length > 0) return true;
+  } catch (err) {
+    console.log('MX lookup failed for', domain, err.code || err.message);
+  }
+  try {
+    const records = await dns.resolve(domain);
+    return Array.isArray(records) && records.length > 0;
+  } catch (err) {
+    console.log('DNS lookup failed for', domain, err.code || err.message);
+    return false;
+  }
 }
 
 async function sendEmailJS(templateId, templateParams) {
@@ -356,7 +375,9 @@ app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
   const cleanEmail = String(email || '').trim().toLowerCase();
   if (!name || !email || !password) return res.status(400).json({ success: false, message: 'Preencha todos os campos.' });
-  if (!isValidEmail(cleanEmail)) return res.status(400).json({ success: false, message: 'Informe um e-mail valido.' });
+  if (!isValidEmail(cleanEmail)) return res.status(400).json({ success: false, message: 'Informe um e-mail válido.' });
+  const emailExists = await emailDomainExists(cleanEmail);
+  if (!emailExists) return res.status(400).json({ success: false, message: 'Informe um e-mail válido e existente.' });
   if (password.length < 6) return res.status(400).json({ success: false, message: 'Senha deve ter pelo menos 6 caracteres.' });
   const { data: existing } = await supabaseAdmin.from('users').select('id').eq('email', cleanEmail).single();
   if (existing) return res.status(400).json({ success: false, message: 'E-mail já registado.' });
@@ -562,7 +583,22 @@ app.post('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_a
   const { data: newAdmin, error } = await supabaseAdmin.from('admin_credentials')
     .insert({ username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
     .select('id,username,role,permissions').single();
-  if (error) return res.status(500).json({ success: false, message: error.message });
+  if (error) {
+    console.error('Erro ao criar administrador:', error.message || error);
+    if (String(error.message || '').includes('admin_credentials_pkey')) {
+      const { data: lastAdmin } = await supabaseAdmin.from('admin_credentials')
+        .select('id').order('id', { ascending: false }).limit(1).single();
+      const nextId = (lastAdmin?.id || 0) + 1;
+      const { data: retryAdmin, error: retryError } = await supabaseAdmin.from('admin_credentials')
+        .insert({ id: nextId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
+        .select('id,username,role,permissions').single();
+      if (!retryError) {
+        return res.json({ success: true, data: { id: retryAdmin.id, username: retryAdmin.username, role: retryAdmin.role, permissions: retryAdmin.permissions, createdAt: null } });
+      }
+      console.error('Erro ao re-criar administrador:', retryError.message || retryError);
+    }
+    return res.status(500).json({ success: false, message: error.message || 'Erro ao criar administrador.' });
+  }
   res.json({ success: true, data: { id: newAdmin.id, username: newAdmin.username, role: newAdmin.role, permissions: newAdmin.permissions, createdAt: null } });
 });
 

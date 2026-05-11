@@ -25,7 +25,7 @@
         <div class="form-group">
           <label class="form-label">E-mail</label>
           <input type="email" id="email" class="form-input" placeholder="o.seu@gmail.com" autocomplete="email">
-          <small class="form-note">Use um e-mail válido, por exemplo do Google.</small>
+          <small class="form-note">Use um e-mail válido e existente para receber o link de confirmação.</small>
         </div>
         <div class="form-group">
           <label class="form-label">Senha (mín. 6 caracteres)</label>
@@ -68,7 +68,7 @@
       }
 
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email)) {
-        errBox.textContent = 'Informe um e-mail valido.';
+        errBox.textContent = 'Informe um e-mail válido e existente.';
         errBox.style.display = 'block';
         return;
       }
