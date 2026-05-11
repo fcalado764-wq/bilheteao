@@ -23,6 +23,7 @@ const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY;
 const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY;
 const EMAILJS_REGISTER_TEMPLATE_ID = process.env.EMAILJS_REGISTER_TEMPLATE_ID;
 const EMAILJS_TICKET_TEMPLATE_ID = process.env.EMAILJS_TICKET_TEMPLATE_ID;
+const EMAILJS_RESET_TEMPLATE_ID = process.env.EMAILJS_RESET_TEMPLATE_ID;
 
 console.log('SUPABASE_URL:', SUPABASE_URL ? 'OK' : 'EM FALTA');
 console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'OK' : 'EM FALTA');
@@ -325,7 +326,8 @@ function saleWithExtras(s) {
 const pages = {
   '/': 'index.html', '/event/:id': 'event.html',
   '/confirmation': 'confirmation.html', '/validate': 'validate.html',
-  '/login': 'login.html', '/register': 'register.html',
+  '/login': 'login.html', '/register': 'register.html', '/confirm-email': 'confirm-email.html',
+  '/forgot-password': 'forgot-password.html', '/reset-password': 'reset-password.html',
   '/submit-event': 'submit-event.html', '/account': 'account.html',
   '/admin': 'admin-login.html', '/admin/dashboard': 'admin-dashboard.html'
 };
@@ -358,26 +360,28 @@ app.post('/api/auth/register', async (req, res) => {
   if (password.length < 6) return res.status(400).json({ success: false, message: 'Senha deve ter pelo menos 6 caracteres.' });
   const { data: existing } = await supabaseAdmin.from('users').select('id').eq('email', cleanEmail).single();
   if (existing) return res.status(400).json({ success: false, message: 'E-mail já registado.' });
-  const { data: user, error } = await supabaseAdmin.from('users').insert({ name, email: cleanEmail, password, role: 'user' }).select().single();
+  const confirmationToken = uuidv4();
+  const { data: user, error } = await supabaseAdmin.from('users').insert({
+    name,
+    email: cleanEmail,
+    password,
+    role: 'user',
+    email_confirmed: false,
+    confirmation_token: confirmationToken
+  }).select().single();
   if (error) return res.status(500).json({ success: false, message: 'Erro ao criar conta: ' + error.message });
-  const token = uuidv4();
-  await supabaseAdmin.from('sessions').insert({
-    token,
-    user_id: user.id,
-    user_name: user.name,
-    user_email: user.email,
-    user_role: user.role,
-    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
-  });
+
   await sendEmailJS(EMAILJS_REGISTER_TEMPLATE_ID, {
     to_email: user.email,
     to_name: user.name,
     user_name: user.name,
     user_email: user.email,
+    confirmation_url: `${SITE_URL}/confirm-email?token=${confirmationToken}`,
     site_url: SITE_URL,
     created_at: new Date().toLocaleString('pt-PT')
   });
-  res.json({ success: true, token, user: { name: user.name, email: user.email } });
+
+  res.json({ success: true, message: 'Conta criada! Verifique o seu email para confirmar a conta.' });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -385,6 +389,7 @@ app.post('/api/auth/login', async (req, res) => {
   const cleanEmail = String(email || '').trim().toLowerCase();
   const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('email', cleanEmail).eq('password', password).single();
   if (error || !user) return res.status(401).json({ success: false, message: 'E-mail ou senha incorrectos.' });
+  if (!user.email_confirmed) return res.status(403).json({ success: false, message: 'Confirme seu e-mail antes de iniciar sessão.', needConfirm: true });
   const token = uuidv4();
   await supabaseAdmin.from('sessions').insert({
     token,
@@ -395,6 +400,19 @@ app.post('/api/auth/login', async (req, res) => {
     expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
   });
   res.json({ success: true, token, user: { name: user.name, email: user.email } });
+});
+
+app.get('/api/auth/confirm-email', async (req, res) => {
+  const token = String(req.query.token || '').trim();
+  if (!token) return res.status(400).json({ success: false, message: 'Token de confirmação inválido.' });
+  const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('confirmation_token', token).single();
+  if (error || !user) return res.status(400).json({ success: false, message: 'Token inválido ou expirado.' });
+  if (user.email_confirmed) return res.json({ success: true, message: 'E-mail já confirmado.' });
+  const { error: updateError } = await supabaseAdmin.from('users')
+    .update({ email_confirmed: true, confirmation_token: null })
+    .eq('id', user.id);
+  if (updateError) return res.status(500).json({ success: false, message: 'Erro ao confirmar e-mail.' });
+  res.json({ success: true, message: 'E-mail confirmado com sucesso. Agora pode iniciar sessão.' });
 });
 
 app.post('/api/auth/logout', requireAuth, async (req, res) => {
@@ -425,6 +443,46 @@ app.put('/api/auth/password', requireAuth, async (req, res) => {
 
   await supabaseAdmin.from('sessions').delete().eq('user_id', req.user.id).neq('token', req.headers['x-auth-token']);
   res.json({ success: true, message: 'Senha actualizada com sucesso.' });
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!isValidEmail(cleanEmail)) return res.status(400).json({ success: false, message: 'Informe um e-mail válido.' });
+  const { data: user, error } = await supabaseAdmin.from('users').select('*').eq('email', cleanEmail).single();
+  if (error || !user) return res.status(404).json({ success: false, message: 'E-mail não encontrado.' });
+  const resetToken = uuidv4();
+  const resetExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 minutes
+  const { error: updateError } = await supabaseAdmin.from('users')
+    .update({ reset_token: resetToken, reset_expires: resetExpires })
+    .eq('id', user.id);
+  if (updateError) return res.status(500).json({ success: false, message: 'Erro ao gerar token de recuperação.' });
+
+  await sendEmailJS(EMAILJS_RESET_TEMPLATE_ID, {
+    to_email: user.email,
+    to_name: user.name,
+    user_name: user.name,
+    reset_url: `${SITE_URL}/reset-password?token=${resetToken}`,
+    site_url: SITE_URL,
+    expires_in: '15 minutos'
+  });
+
+  res.json({ success: true, message: 'E-mail de recuperação enviado. Verifique a sua caixa de entrada.' });
+});
+
+app.post('/api/auth/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!token || !newPassword) return res.status(400).json({ success: false, message: 'Token e nova senha são obrigatórios.' });
+  if (newPassword.length < 6) return res.status(400).json({ success: false, message: 'A nova senha deve ter pelo menos 6 caracteres.' });
+  const { data: user, error } = await supabaseAdmin.from('users')
+    .select('*').eq('reset_token', token).gt('reset_expires', new Date().toISOString()).single();
+  if (error || !user) return res.status(400).json({ success: false, message: 'Token inválido ou expirado.' });
+  const { error: updateError } = await supabaseAdmin.from('users')
+    .update({ password: newPassword, reset_token: null, reset_expires: null })
+    .eq('id', user.id);
+  if (updateError) return res.status(500).json({ success: false, message: 'Erro ao actualizar senha.' });
+  await supabaseAdmin.from('sessions').delete().eq('user_id', user.id);
+  res.json({ success: true, message: 'Senha alterada com sucesso. Faça login com a nova senha.' });
 });
 
 // ------------------------------------------------------------

@@ -16,6 +16,7 @@
         <p class="auth-sub">Compre bilhetes, acompanhe submissões e valide entradas com a mesma conta.</p>
 
         <div id="authError" class="form-error" style="display:none"></div>
+        <div id="authSuccess" class="form-success" style="display:none"></div>
 
         <div class="form-group">
           <label class="form-label">Nome completo</label>
@@ -23,7 +24,8 @@
         </div>
         <div class="form-group">
           <label class="form-label">E-mail</label>
-          <input type="email" id="email" class="form-input" placeholder="o.seu@email.com" autocomplete="email">
+          <input type="email" id="email" class="form-input" placeholder="o.seu@gmail.com" autocomplete="email">
+          <small class="form-note">Use um e-mail válido, por exemplo do Google.</small>
         </div>
         <div class="form-group">
           <label class="form-label">Senha (mín. 6 caracteres)</label>
@@ -86,10 +88,10 @@
         const json = await res.json();
 
         if (json.success) {
-          localStorage.setItem('authToken', json.token);
-          localStorage.setItem('userName', json.user.name);
-          localStorage.setItem('userEmail', json.user.email);
-          window.location.href = '/';
+          document.getElementById('authSuccess').textContent = json.message || 'Conta criada! Verifique o seu email para confirmar a conta.';
+          document.getElementById('authSuccess').style.display = 'block';
+          localStorage.removeItem('authToken');
+          setTimeout(() => window.location.href = '/login', 6000);
         } else {
           errBox.textContent = json.message;
           errBox.style.display = 'block';

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmar Email | BilheteAO</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-shell">
+      <section class="auth-box">
+        <a href="/" class="auth-logo">BilheteAO</a>
+        <h1 class="auth-title">Confirmação de E-mail</h1>
+        <p class="auth-sub">Aguarde enquanto confirmamos a sua conta.</p>
+
+        <div id="confirmMessage" class="form-success" style="display:none"></div>
+        <div id="confirmError" class="form-error" style="display:none"></div>
+
+        <div id="confirmLoading" style="text-align:center;margin-top:24px;color:var(--text-muted)">Processando confirmação...</div>
+
+        <a href="/login" class="btn-purchase" id="confirmLink" style="display:none;margin-top:18px">Ir para Iniciar Sessão</a>
+        <a href="/" class="auth-back">← Voltar à página inicial</a>
+      </section>
+
+      <aside class="auth-visual">
+        <span class="section-kicker">Confirmação por email</span>
+        <h2>Assim que o email for confirmado, a sua conta estará pronta para usar.</h2>
+        <p>Verifique a sua caixa de entrada e clique no link de confirmação.</p>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    async function confirmEmail() {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const loading = document.getElementById('confirmLoading');
+      const success = document.getElementById('confirmMessage');
+      const error = document.getElementById('confirmError');
+      const link = document.getElementById('confirmLink');
+
+      if (!token) {
+        loading.style.display = 'none';
+        error.textContent = 'Token de confirmação não encontrado.';
+        error.style.display = 'block';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/confirm-email?token=${encodeURIComponent(token)}`);
+        const json = await res.json();
+        loading.style.display = 'none';
+
+        if (json.success) {
+          success.textContent = json.message;
+          success.style.display = 'block';
+          link.style.display = 'inline-block';
+        } else {
+          error.textContent = json.message || 'Não foi possível confirmar o email.';
+          error.style.display = 'block';
+          link.style.display = 'inline-block';
+        }
+      } catch (err) {
+        loading.style.display = 'none';
+        error.textContent = 'Erro ao confirmar e-mail. Tente novamente mais tarde.';
+        error.style.display = 'block';
+        link.style.display = 'inline-block';
+      }
+    }
+
+    confirmEmail();
+  </script>
+</body>
+</html>

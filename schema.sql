@@ -8,13 +8,21 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ── Tabela: utilizadores ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name        TEXT NOT NULL,
-  email       TEXT UNIQUE NOT NULL,
-  password    TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-  created_at  TIMESTAMPTZ DEFAULT NOW()
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name               TEXT NOT NULL,
+  email              TEXT UNIQUE NOT NULL,
+  password           TEXT NOT NULL,
+  role               TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  email_confirmed    BOOLEAN NOT NULL DEFAULT FALSE,
+  confirmation_token TEXT,
+  reset_token        TEXT,
+  reset_expires      TIMESTAMPTZ,
+  created_at         TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_confirmed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmation_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ;
 
 -- ── Tabela: eventos ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS events (
