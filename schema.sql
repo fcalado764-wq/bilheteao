@@ -66,12 +66,10 @@ ON CONFLICT (username) DO NOTHING;
 -- ── Tabela: sessões de administrador ──────────────────────
 CREATE TABLE IF NOT EXISTS admin_sessions (
   token       TEXT PRIMARY KEY,
-  admin_id    INTEGER REFERENCES admin_credentials(id) ON DELETE CASCADE,
   username    TEXT NOT NULL,
   role        TEXT NOT NULL DEFAULT 'admin',
-  permissions JSONB NOT NULL DEFAULT '{"manage_events": true, "manage_users": true, "manage_admins": true}',
   created_at  TIMESTAMPTZ DEFAULT NOW(),
-  expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '1 day'
+  expires_at  TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 minutes'
 );
 
 -- ── Tabela: vendas / bilhetes ──────────────────────────────

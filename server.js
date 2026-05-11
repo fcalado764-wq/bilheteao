@@ -257,16 +257,24 @@ async function requireAuth(req, res, next) {
 async function requireAdminAuth(req, res, next) {
   const token = req.headers['x-admin-token'];
   if (!token) return res.status(401).json({ success: false, message: 'Acesso não autorizado.' });
-  const { data, error } = await supabaseAdmin
-    .from('admin_sessions').select('*').eq('token', token)
+  console.log('Verificando token admin:', token);
+  
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from('admin_sessions').select('token,username,expires_at').eq('token', token)
     .gt('expires_at', new Date().toISOString()).single();
-  if (error || !data) return res.status(401).json({ success: false, message: 'Sessão admin expirada.' });
+  console.log('Sessão admin encontrada:', session ? 'sim' : 'não', sessionError);
+  if (sessionError || !session) return res.status(401).json({ success: false, message: 'Sessão admin expirada.' });
+
+  const { data: admin, error: adminError } = await supabaseAdmin
+    .from('admin_credentials').select('role,permissions').eq('username', session.username).single();
+  if (adminError || !admin) return res.status(401).json({ success: false, message: 'Credenciais admin não encontradas.' });
+
   req.admin = {
-    id: data.admin_id,
-    username: data.username,
-    role: data.role || 'superadmin',
-    permissions: data.permissions || { manage_events: true, manage_users: true, manage_admins: true }
+    username: session.username,
+    role: admin.role || 'superadmin',
+    permissions: admin.permissions || { manage_events: true, manage_users: true, manage_admins: true }
   };
+  console.log('Admin autenticado:', req.admin.username);
   next();
 }
 
@@ -425,18 +433,25 @@ app.put('/api/auth/password', requireAuth, async (req, res) => {
 app.post('/api/admin/login', async (req, res) => {
   const { username, password } = req.body;
   const cleanUsername = String(username || '').trim();
+  console.log('Tentativa de login:', cleanUsername);
   const { data: admin, error } = await supabaseAdmin.from('admin_credentials')
     .select('*').eq('username', cleanUsername).eq('password', password).single();
+  console.log('Admin encontrado:', admin ? 'sim' : 'não', error);
   if (error || !admin) return res.status(401).json({ success: false, message: 'Credenciais inválidas.' });
   const token = uuidv4();
-  await supabaseAdmin.from('admin_sessions').insert({
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  console.log('Criando sessão para:', admin.username, 'com token:', token);
+
+  const { error: insertError } = await supabaseAdmin.from('admin_sessions').insert([{ 
     token,
-    admin_id: admin.id,
     username: admin.username,
-    role: admin.role || 'superadmin',
-    permissions: admin.permissions || { manage_events: true, manage_users: true, manage_admins: true },
-    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
-  });
+    expires_at: expiresAt
+  }]);
+  if (insertError) {
+    console.error('Erro ao inserir sessão admin:', insertError);
+    return res.status(500).json({ success: false, message: 'Erro ao criar sessão.' });
+  }
+
   res.json({ success: true, token, admin: { username: admin.username, role: admin.role || 'superadmin', permissions: admin.permissions || {} } });
 });
 
@@ -445,7 +460,10 @@ app.get('/api/admin/me', requireAdminAuth, (req, res) => {
 });
 
 app.post('/api/admin/logout', requireAdminAuth, async (req, res) => {
-  await supabaseAdmin.from('admin_sessions').delete().eq('token', req.headers['x-admin-token']);
+  const token = req.headers['x-admin-token'];
+  const { error } = await supabaseAdmin.from('admin_sessions').delete().eq('token', token);
+  if (error) console.error('Erro ao apagar sessão admin:', error);
+  console.log('Admin desconectado:', req.admin.username);
   res.json({ success: true });
 });
 
