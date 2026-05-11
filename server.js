@@ -482,14 +482,14 @@ app.put('/api/admin/credentials', requireAdminAuth, async (req, res) => {
 });
 
 app.get('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_admins'), async (req, res) => {
-  const { data, error } = await supabaseAdmin.from('admin_credentials').select('id,username,role,permissions,created_at').order('created_at', { ascending: false });
+  const { data, error } = await supabaseAdmin.from('admin_credentials').select('id,username,role,permissions').order('id', { ascending: false });
   if (error) return res.status(500).json({ success: false, message: error.message });
   res.json({ success: true, data: (data||[]).map(admin => ({
     id: admin.id,
     username: admin.username,
     role: admin.role || 'admin',
     permissions: admin.permissions || {},
-    createdAt: admin.created_at
+    createdAt: admin.created_at || null
   })) });
 });
 
@@ -503,9 +503,9 @@ app.post('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_a
   const adminPermissions = permissions || { manage_events: true, manage_users: true, manage_admins: true };
   const { data: newAdmin, error } = await supabaseAdmin.from('admin_credentials')
     .insert({ username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
-    .select('id,username,role,permissions,created_at').single();
+    .select('id,username,role,permissions').single();
   if (error) return res.status(500).json({ success: false, message: error.message });
-  res.json({ success: true, data: { id: newAdmin.id, username: newAdmin.username, role: newAdmin.role, permissions: newAdmin.permissions, createdAt: newAdmin.created_at } });
+  res.json({ success: true, data: { id: newAdmin.id, username: newAdmin.username, role: newAdmin.role, permissions: newAdmin.permissions, createdAt: null } });
 });
 
 app.put('/api/admin/admins/:id', requireAdminAuth, requireAdminPermission('manage_admins'), async (req, res) => {

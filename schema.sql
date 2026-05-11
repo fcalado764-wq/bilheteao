@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS admin_credentials (
   permissions JSONB NOT NULL DEFAULT '{"manage_events": true, "manage_users": true, "manage_admins": true}',
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE admin_credentials ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Inserir credenciais padrão
 INSERT INTO admin_credentials (username, password, role, permissions)
