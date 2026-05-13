@@ -1,6 +1,10 @@
 -- Fix admin_sessions table
 -- Execute este SQL no Editor SQL do Supabase
 
+-- Permitir múltiplos administradores (corrige erro "single_row")
+ALTER TABLE IF EXISTS admin_credentials
+  DROP CONSTRAINT IF EXISTS single_row;
+
 DROP TABLE IF EXISTS admin_sessions CASCADE;
 
 CREATE TABLE admin_sessions (

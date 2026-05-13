@@ -26,6 +26,46 @@ const EMAILJS_REGISTER_TEMPLATE_ID = process.env.EMAILJS_REGISTER_TEMPLATE_ID;
 const EMAILJS_TICKET_TEMPLATE_ID = process.env.EMAILJS_TICKET_TEMPLATE_ID;
 const EMAILJS_RESET_TEMPLATE_ID = process.env.EMAILJS_RESET_TEMPLATE_ID;
 
+function isLocalHostname(hostname) {
+  const value = String(hostname || '').toLowerCase();
+  return value === 'localhost' || value === '127.0.0.1' || value === '::1';
+}
+
+function parseUrlOrigin(value) {
+  try {
+    const parsed = new URL(String(value || '').trim());
+    if (!parsed.protocol || !parsed.host) return null;
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function resolveSiteUrl(req) {
+  const configuredOrigin = parseUrlOrigin(SITE_URL);
+  const forwardedProto = String(req?.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+  const forwardedHost = String(req?.headers?.['x-forwarded-host'] || '').split(',')[0].trim();
+  const host = forwardedHost || req?.get?.('host') || '';
+  const protocol = forwardedProto || req?.protocol || 'http';
+  const requestOrigin = host ? `${protocol}://${host}` : null;
+
+  if (!configuredOrigin && requestOrigin) return requestOrigin;
+  if (!configuredOrigin) return `http://localhost:${PORT}`;
+  if (!requestOrigin) return configuredOrigin;
+
+  const configuredHost = new URL(configuredOrigin).hostname;
+  const requestHost = new URL(requestOrigin).hostname;
+  if (isLocalHostname(configuredHost) && !isLocalHostname(requestHost)) return requestOrigin;
+  return configuredOrigin;
+}
+
+function buildAbsoluteUrl(req, pathnameWithQuery) {
+  const base = resolveSiteUrl(req).replace(/\/+$/, '');
+  const suffix = String(pathnameWithQuery || '');
+  if (!suffix) return base;
+  return `${base}${suffix.startsWith('/') ? suffix : `/${suffix}`}`;
+}
+
 console.log('SUPABASE_URL:', SUPABASE_URL ? 'OK' : 'EM FALTA');
 console.log('SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? 'OK' : 'EM FALTA');
 console.log('SUPABASE_SERVICE_KEY:', SUPABASE_SERVICE_KEY ? 'OK' : 'EM FALTA');
@@ -58,6 +98,7 @@ async function syncSequences() {
 }
 
 const app = express();
+app.set('trust proxy', true);
 
 // Servir ficheiros estáticos (HTML, CSS, JS) — leitura apenas, funciona no Vercel
 app.use(express.json());
@@ -412,13 +453,18 @@ app.post('/api/auth/register', async (req, res) => {
   }).select().single();
   if (error) return res.status(500).json({ success: false, message: 'Erro ao criar conta: ' + error.message });
 
+  const siteUrl = resolveSiteUrl(req);
+  const confirmationUrl = buildAbsoluteUrl(req, `/confirm-email?token=${confirmationToken}`);
+
   await sendEmailJS(EMAILJS_REGISTER_TEMPLATE_ID, {
     to_email: user.email,
     to_name: user.name,
     user_name: user.name,
     user_email: user.email,
-    confirmation_url: `${SITE_URL}/confirm-email?token=${confirmationToken}`,
-    site_url: SITE_URL,
+    confirmation_url: confirmationUrl,
+    confirm_url: confirmationUrl,
+    verification_url: confirmationUrl,
+    site_url: siteUrl,
     created_at: new Date().toLocaleString('pt-PT')
   });
 
@@ -499,12 +545,16 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     .eq('id', user.id);
   if (updateError) return res.status(500).json({ success: false, message: 'Erro ao gerar token de recuperação.' });
 
+  const siteUrl = resolveSiteUrl(req);
+  const resetUrl = buildAbsoluteUrl(req, `/reset-password?token=${resetToken}`);
+
   await sendEmailJS(EMAILJS_RESET_TEMPLATE_ID, {
     to_email: user.email,
     to_name: user.name,
     user_name: user.name,
-    reset_url: `${SITE_URL}/reset-password?token=${resetToken}`,
-    site_url: SITE_URL,
+    reset_url: resetUrl,
+    recovery_url: resetUrl,
+    site_url: siteUrl,
     expires_in: '15 minutos'
   });
 
@@ -600,25 +650,37 @@ app.post('/api/admin/admins', requireAdminAuth, requireAdminPermission('manage_a
   if (existingAdmin) return res.status(400).json({ success: false, message: 'Administrador já existente.' });
   const adminRole = role || 'admin';
   const adminPermissions = permissions || { manage_events: true, manage_users: true, manage_admins: true };
-  const { data: lastAdmin } = await supabaseAdmin.from('admin_credentials')
-    .select('id').order('id', { ascending: false }).limit(1).single();
-  const nextId = (lastAdmin?.id || 0) + 1;
   const { data: newAdmin, error } = await supabaseAdmin.from('admin_credentials')
-    .insert({ id: nextId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
+    .insert({ username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
     .select('id,username,role,permissions').single();
   if (error) {
-    console.error('Erro ao criar administrador (id=', nextId, '):', error.message || error);
-    if (String(error.message || '').includes('admin_credentials_pkey')) {
-      const { data: lastAdminRetry } = await supabaseAdmin.from('admin_credentials')
-        .select('id').order('id', { ascending: false }).limit(1).single();
-      const retryId = (lastAdminRetry?.id || 0) + 1;
+    console.error('Erro ao criar administrador:', error.message || error);
+    const rawMessage = String(error.message || '').toLowerCase();
+    if (rawMessage.includes('admin_credentials_pkey') || rawMessage.includes('duplicate key value violates unique constraint')) {
+      const { data: lastAdmin } = await supabaseAdmin.from('admin_credentials')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .single();
+      const retryId = (lastAdmin?.id || 0) + 1;
       const { data: retryAdmin, error: retryError } = await supabaseAdmin.from('admin_credentials')
         .insert({ id: retryId, username: cleanUsername, password, role: adminRole, permissions: adminPermissions })
-        .select('id,username,role,permissions').single();
+        .select('id,username,role,permissions')
+        .single();
       if (!retryError) {
-        return res.json({ success: true, data: { id: retryAdmin.id, username: retryAdmin.username, role: retryAdmin.role, permissions: retryAdmin.permissions, createdAt: null } });
+        return res.json({
+          success: true,
+          data: { id: retryAdmin.id, username: retryAdmin.username, role: retryAdmin.role, permissions: retryAdmin.permissions, createdAt: null }
+        });
       }
-      console.error('Erro ao re-criar administrador:', retryError.message || retryError);
+      console.error('Erro na segunda tentativa de criação de admin:', retryError.message || retryError);
+      return res.status(500).json({ success: false, message: retryError.message || 'Erro ao criar administrador.' });
+    }
+    if (rawMessage.includes('single_row')) {
+      return res.status(400).json({
+        success: false,
+        message: 'A base de dados ainda está limitada a apenas 1 administrador. Execute no Supabase: ALTER TABLE admin_credentials DROP CONSTRAINT IF EXISTS single_row;'
+      });
     }
     return res.status(500).json({ success: false, message: error.message || 'Erro ao criar administrador.' });
   }
@@ -659,9 +721,29 @@ app.get('/api/admin/stats', requireAdminAuth, async (req, res) => {
   }});
 });
 
-app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
+app.get('/api/admin/users', requireAdminAuth, requireAdminPermission('manage_users'), async (req, res) => {
   const { data } = await supabaseAdmin.from('users').select('id,name,email,role,created_at').order('created_at', { ascending: false });
   res.json({ success: true, data: (data||[]).map(u => ({ ...u, createdAt: u.created_at })) });
+});
+
+app.delete('/api/admin/users/:id', requireAdminAuth, requireAdminPermission('manage_users'), async (req, res) => {
+  const userId = String(req.params.id || '').trim();
+  if (!userId) return res.status(400).json({ success: false, message: 'ID do utilizador é obrigatório.' });
+
+  const { data: targetUser, error: userError } = await supabaseAdmin
+    .from('users')
+    .select('id,name,email')
+    .eq('id', userId)
+    .single();
+  if (userError || !targetUser) return res.status(404).json({ success: false, message: 'Utilizador não encontrado.' });
+
+  const { error: deleteError } = await supabaseAdmin.from('users').delete().eq('id', userId);
+  if (deleteError) return res.status(500).json({ success: false, message: deleteError.message });
+
+  res.json({
+    success: true,
+    message: `Utilizador ${targetUser.name || targetUser.email} eliminado com sucesso.`
+  });
 });
 
 app.get('/api/admin/sales', requireAdminAuth, async (req, res) => {
@@ -791,9 +873,11 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
   const emailTickets = [];
 
   try {
+    const siteUrl = resolveSiteUrl(req);
+
     for (let i = 0; i < qty; i++) {
       const ticketCode = `TKT-${uuidv4().substring(0,8).toUpperCase()}`;
-      const validateUrl = `${SITE_URL}/admin/dashboard?tab=validate&code=${ticketCode}`;
+      const validateUrl = `${siteUrl}/admin/dashboard?tab=validate&code=${ticketCode}`;
 
       const qrCodeDataURL = await QRCode.toDataURL(validateUrl, {
         errorCorrectionLevel: 'H', margin: 1,
@@ -854,7 +938,7 @@ app.post('/api/purchase', requireAuth, async (req, res) => {
         ticket_pdf: ticket.pdfData,
         ticket_filename: ticket.pdfFileName,
         purchase_date: purchaseDate.toLocaleString('pt-PT'),
-        site_url: SITE_URL
+        site_url: siteUrl
       });
     }
 

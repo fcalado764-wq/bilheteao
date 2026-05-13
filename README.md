@@ -24,7 +24,21 @@ npm install
 ```bash
 cp .env.example .env
 ```
-Edite o ficheiro `.env` com as suas credenciais do Supabase.
+Edite o ficheiro `.env` com as suas credenciais do Supabase e EmailJS.
+
+Variáveis esperadas:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_KEY`
+- `NEXT_PUBLIC_SITE_URL` (em produção, use a URL real do deploy)
+- `PORT`
+- `EMAILJS_SERVICE_ID`
+- `EMAILJS_PUBLIC_KEY`
+- `EMAILJS_PRIVATE_KEY`
+- `EMAILJS_REGISTER_TEMPLATE_ID`
+- `EMAILJS_TICKET_TEMPLATE_ID`
+- `EMAILJS_RESET_TEMPLATE_ID`
 
 ### 3. Configurar a base de dados
 - Aceda ao Supabase → SQL Editor

@@ -104,7 +104,7 @@
       <div class="admin-page-header"><h1>Utilizadores</h1><span class="admin-badge" id="usersCount">0</span></div>
       <div class="admin-table-wrap">
         <table class="admin-table">
-          <thead><tr><th>Nome</th><th>E-mail</th><th>Função</th><th>Registado em</th></tr></thead>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Função</th><th>Registado em</th><th>Acção</th></tr></thead>
           <tbody id="usersTableBody"></tbody>
         </table>
       </div>
@@ -469,12 +469,27 @@
     const json = await res.json();
     if (!handleAdminAuthResponse(json)) return;
     document.getElementById('usersCount').textContent = `${json.data.length} utilizadores`;
-    document.getElementById('usersTableBody').innerHTML = json.data.map(u => `<tr>
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td><span class="status-badge ${u.role === 'admin' ? 'status-valid' : 'status-used'}">${u.role === 'admin' ? '🔐 Admin' : '👤 User'}</span></td>
-      <td>${u.createdAt || u.created_at ? new Date(u.createdAt || u.created_at).toLocaleDateString('pt-PT') : '—'}</td>
-    </tr>`).join('');
+    document.getElementById('usersTableBody').innerHTML = json.data.length
+      ? json.data.map(u => `<tr>
+          <td>${u.name}</td>
+          <td>${u.email}</td>
+          <td><span class="status-badge ${u.role === 'admin' ? 'status-valid' : 'status-used'}">${u.role === 'admin' ? '🔐 Admin' : '👤 User'}</span></td>
+          <td>${u.createdAt || u.created_at ? new Date(u.createdAt || u.created_at).toLocaleDateString('pt-PT') : '—'}</td>
+          <td><button class="btn-delete" onclick="deleteUser('${u.id}', '${(u.name || '').replace(/'/g, "\\'")}')">Eliminar</button></td>
+        </tr>`).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-muted)">Nenhum utilizador registado.</td></tr>';
+  }
+
+  async function deleteUser(id, name) {
+    if (!confirm(`Eliminar o utilizador "${name || 'sem nome'}"? Esta acção não pode ser desfeita.`)) return;
+    const res = await fetch(`/api/admin/users/${id}`, { method: 'DELETE', headers: H });
+    const json = await res.json();
+    if (!json.success) {
+      alert(json.message || 'Não foi possível eliminar o utilizador.');
+      return;
+    }
+    await loadUsers();
+    await loadStats();
   }
 
   async function loadSettings() {
